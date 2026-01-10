@@ -325,11 +325,17 @@ export default function UsuariosPage() {
                         <span className={`px-2 py-1 text-xs font-semibold rounded-lg ${
                           user.roleName === 'ADMIN' 
                             ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
-                            : user.roleName === 'AUDITOR'
+                            : user.roleName === 'VIEWER'
                             ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                            : user.roleName === 'APPROVER'
+                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400'
                         }`}>
-                          {user.roleName}
+                          {user.roleName === 'ADMIN' ? 'Administrador' 
+                            : user.roleName === 'USER' ? 'Usuario'
+                            : user.roleName === 'VIEWER' ? 'Visualizador'
+                            : user.roleName === 'APPROVER' ? 'Aprobador'
+                            : user.roleName}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -396,7 +402,7 @@ export default function UsuariosPage() {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-white"
-                      placeholder="Carlos"
+                      placeholder="Ingrese el nombre"
                     />
                   </div>
                   <div>
@@ -408,7 +414,7 @@ export default function UsuariosPage() {
                       value={formData.lastname}
                       onChange={(e) => setFormData({ ...formData, lastname: e.target.value })}
                       className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-white"
-                      placeholder="Daroma"
+                      placeholder="Ingrese el apellido"
                     />
                   </div>
                 </div>
@@ -439,7 +445,7 @@ export default function UsuariosPage() {
                           ? 'border-green-500 dark:border-green-500' 
                           : 'border-gray-200 dark:border-gray-700'
                     }`}
-                    placeholder="1234567890"
+                    placeholder="Ingrese la cédula"
                     maxLength={10}
                   />
                   {cedulaError && (
@@ -464,7 +470,7 @@ export default function UsuariosPage() {
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                     className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-white"
-                    placeholder="cDaroma"
+                    placeholder="Ingrese el nombre de usuario"
                   />
                 </div>
 
@@ -532,7 +538,8 @@ export default function UsuariosPage() {
                   >
                     <option value="USER">Usuario</option>
                     <option value="ADMIN">Administrador</option>
-                    <option value="AUDITOR">Auditor</option>
+                    <option value="VIEWER">Visualizador</option>
+                    <option value="APPROVER">Aprobador</option>
                   </select>
                 </div>
               </div>
