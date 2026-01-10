@@ -18,7 +18,8 @@ import {
   Eye,
   CheckSquare,
   UserCircle,
-  Edit3
+  Edit3,
+  Calendar
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -38,6 +39,7 @@ const menuItems: MenuItem[] = [
   { name: 'Dashboard', icon: Home, href: '/home', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
   { name: 'Políticas', icon: Shield, href: '/politicas', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
   { name: 'Documentos', icon: FileText, href: '/documentos', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
+  { name: 'Cronograma', icon: Calendar, href: '/cronograma', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
   { name: 'Editor', icon: Edit3, href: '/editor', roles: ['ADMIN', 'USER', 'EDITOR'] },
   { name: 'Evaluaciones', icon: ClipboardCheck, href: '/evaluaciones', roles: ['ADMIN', 'USER', 'APPROVER'] },
   { name: 'Riesgos', icon: AlertCircle, href: '/riesgos', badge: 3, roles: ['ADMIN', 'USER', 'APPROVER'] },
