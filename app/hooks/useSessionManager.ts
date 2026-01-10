@@ -15,7 +15,17 @@ interface UseSessionManagerReturn {
 // Decode JWT to get expiration time
 function decodeJWT(token: string): { exp: number } | null {
   try {
+    if (!token || typeof token !== 'string') {
+      console.error('[decodeJWT] Token inválido:', token);
+      return null;
+    }
+    
     const base64Url = token.split('.')[1];
+    if (!base64Url) {
+      console.error('[decodeJWT] Token no tiene formato JWT válido');
+      return null;
+    }
+    
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const jsonPayload = decodeURIComponent(
       atob(base64)
@@ -73,7 +83,14 @@ export function useSessionManager(): UseSessionManagerReturn {
     try {
       console.log('[SessionManager] Renovando token...');
       // Call refresh token endpoint
-      const newToken = await authAPI.refreshToken(token);
+      const response = await authAPI.refreshToken(token);
+      
+      // El backend devuelve { token: "..." } o directamente el token
+      const newToken = typeof response === 'string' ? response : response.token;
+      
+      if (!newToken || typeof newToken !== 'string') {
+        throw new Error('Token inválido recibido del servidor');
+      }
       
       // Update token in Redux and localStorage
       dispatch(refreshTokenAction(newToken));
