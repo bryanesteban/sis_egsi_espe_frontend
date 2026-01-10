@@ -488,11 +488,17 @@ export default function UsuariosPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Cédula
+                    {editingUser && (
+                      <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 font-normal">
+                        (No editable)
+                      </span>
+                    )}
                   </label>
                   <input
                     type="text"
                     value={formData.cedula}
                     onChange={(e) => {
+                      if (editingUser) return; // No permitir cambios en modo edición
                       const value = e.target.value.replace(/\D/g, '').slice(0, 10);
                       setFormData({ ...formData, cedula: value });
                       if (value.length === 10) {
@@ -504,23 +510,28 @@ export default function UsuariosPage() {
                         setCedulaError('');
                       }
                     }}
-                    className={`w-full px-3 py-2 bg-white dark:bg-gray-900 border rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-white ${
-                      cedulaError 
-                        ? 'border-red-500 dark:border-red-500' 
-                        : formData.cedula.length === 10 
-                          ? 'border-green-500 dark:border-green-500' 
-                          : 'border-gray-200 dark:border-gray-700'
+                    disabled={!!editingUser}
+                    className={`w-full px-3 py-2 border rounded-lg text-gray-900 dark:text-white ${
+                      editingUser
+                        ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-75 border-gray-300 dark:border-gray-600'
+                        : `bg-white dark:bg-gray-900 focus:ring-2 focus:ring-green-500 ${
+                            cedulaError 
+                              ? 'border-red-500 dark:border-red-500' 
+                              : formData.cedula.length === 10 
+                                ? 'border-green-500 dark:border-green-500' 
+                                : 'border-gray-200 dark:border-gray-700'
+                          }`
                     }`}
                     placeholder="Ingrese la cédula"
                     maxLength={10}
                   />
-                  {cedulaError && (
+                  {!editingUser && cedulaError && (
                     <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
                       <AlertCircle className="w-4 h-4" />
                       {cedulaError}
                     </p>
                   )}
-                  {!cedulaError && formData.cedula.length === 10 && (
+                  {!editingUser && !cedulaError && formData.cedula.length === 10 && (
                     <p className="mt-1 text-sm text-green-500">
                       ✓ Cédula válida
                     </p>
