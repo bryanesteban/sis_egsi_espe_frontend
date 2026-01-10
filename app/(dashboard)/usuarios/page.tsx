@@ -221,7 +221,16 @@ export default function UsuariosPage() {
       dispatch(showToast({ message: 'Usuario eliminado correctamente', type: 'success' }));
     } catch (err: any) {
       console.error('Error deleting user:', err);
-      dispatch(showToast({ message: 'Error al eliminar el usuario', type: 'error' }));
+      const status = err.response?.status;
+      
+      if (status === 404) {
+        // Usuario ya fue eliminado o no existe, removerlo de la lista local
+        setUsers(users.filter(user => user.id !== id));
+        dispatch(showToast({ message: 'El usuario ya no existe en el sistema', type: 'warning' }));
+      } else {
+        const errorMsg = err.response?.data?.error || 'Error al eliminar el usuario';
+        dispatch(showToast({ message: errorMsg, type: 'error' }));
+      }
     }
   };
 

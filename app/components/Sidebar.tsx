@@ -17,13 +17,14 @@ import {
   X,
   Eye,
   CheckSquare,
-  UserCircle
+  UserCircle,
+  Edit3
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAppSelector } from '@/app/store/hooks';
 
-type UserRole = 'ADMIN' | 'USER' | 'VIEWER' | 'APPROVER';
+type UserRole = 'ADMIN' | 'USER' | 'VIEWER' | 'APPROVER' | 'EDITOR';
 
 interface MenuItem {
   name: string;
@@ -37,6 +38,7 @@ const menuItems: MenuItem[] = [
   { name: 'Dashboard', icon: Home, href: '/home', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
   { name: 'Políticas', icon: Shield, href: '/politicas', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
   { name: 'Documentos', icon: FileText, href: '/documentos', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
+  { name: 'Editor', icon: Edit3, href: '/editor', roles: ['ADMIN', 'USER', 'EDITOR'] },
   { name: 'Evaluaciones', icon: ClipboardCheck, href: '/evaluaciones', roles: ['ADMIN', 'USER', 'APPROVER'] },
   { name: 'Riesgos', icon: AlertCircle, href: '/riesgos', badge: 3, roles: ['ADMIN', 'USER', 'APPROVER'] },
   { name: 'Proyectos', icon: FolderOpen, href: '/proyectos', roles: ['ADMIN', 'USER'] },

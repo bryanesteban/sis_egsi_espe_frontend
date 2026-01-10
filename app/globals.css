@@ -44,3 +44,31 @@ body {
 * {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
+
+/* ============================================
+   BLOCKNOTE EDITOR STYLES
+   ============================================ */
+.blocknote-wrapper {
+  min-height: 500px;
+}
+
+.blocknote-wrapper .bn-editor {
+  min-height: 500px;
+}
+
+.blocknote-wrapper .bn-container {
+  font-family: inherit;
+}
+
+/* Dark mode adjustments for BlockNote */
+.dark .blocknote-wrapper {
+  --bn-colors-editor-background: #1f2937;
+  --bn-colors-editor-text: #f9fafb;
+  --bn-colors-menu-background: #374151;
+  --bn-colors-menu-text: #f9fafb;
+  --bn-colors-tooltip-background: #4b5563;
+  --bn-colors-tooltip-text: #f9fafb;
+  --bn-colors-hovered-background: #4b5563;
+  --bn-colors-selected-background: #6366f1;
+}
+
