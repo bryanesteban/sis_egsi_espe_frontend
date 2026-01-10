@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { store } from '@/app/store/store';
 import { useEffect } from 'react';
 import { restoreAuth } from '@/app/store/slices/authSlice';
+import { ThemeProvider } from '@/app/context/ThemeContext';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -25,5 +26,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  return <Provider store={store}>{children}</Provider>;
+  return (
+    <Provider store={store}>
+      <ThemeProvider>
+        {children}
+      </ThemeProvider>
+    </Provider>
+  );
 }

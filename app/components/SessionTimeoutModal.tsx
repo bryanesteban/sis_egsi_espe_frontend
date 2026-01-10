@@ -24,9 +24,9 @@ export default function SessionTimeoutModal({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       {/* Modal */}
-      <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+      <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
         {/* Header with gradient */}
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 p-6 text-white">
+        <div className="bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 p-6 text-white">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-3 rounded-full">
               <AlertTriangle className="w-6 h-6" />
@@ -62,7 +62,7 @@ export default function SessionTimeoutModal({
                   fill="none"
                   strokeDasharray={`${2 * Math.PI * 56}`}
                   strokeDashoffset={`${2 * Math.PI * 56 * (1 - countdown / 30)}`}
-                  className="text-orange-500 transition-all duration-1000 ease-linear"
+                  className="text-green-500 dark:text-green-400 transition-all duration-1000 ease-linear"
                   strokeLinecap="round"
                 />
               </svg>
@@ -74,12 +74,12 @@ export default function SessionTimeoutModal({
             </div>
             <p className="mt-4 text-center text-gray-600 dark:text-gray-300">
               La sesión se cerrará automáticamente en{' '}
-              <span className="font-bold text-orange-500">{countdown} segundos</span>
+              <span className="font-bold text-green-600 dark:text-green-400">{countdown} segundos</span>
             </p>
           </div>
 
           {/* Message */}
-          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
             <p className="text-sm text-gray-700 dark:text-gray-300">
               ¿Deseas renovar tu sesión para continuar trabajando o cerrar sesión?
             </p>
