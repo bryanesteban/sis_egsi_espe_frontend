@@ -41,6 +41,7 @@ export function useSessionManager(): UseSessionManagerReturn {
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const autoLogoutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownStartedRef = useRef(false);
 
   const clearAllTimers = useCallback(() => {
     if (checkIntervalRef.current) {
@@ -58,7 +59,9 @@ export function useSessionManager(): UseSessionManagerReturn {
   }, []);
 
   const handleLogout = useCallback(() => {
+    console.log('[SessionManager] Ejecutando logout');
     clearAllTimers();
+    countdownStartedRef.current = false;
     setShowModal(false);
     dispatch(logout());
   }, [dispatch, clearAllTimers]);
@@ -68,14 +71,17 @@ export function useSessionManager(): UseSessionManagerReturn {
     
     setIsRenewing(true);
     try {
+      console.log('[SessionManager] Renovando token...');
       // Call refresh token endpoint
       const newToken = await authAPI.refreshToken(token);
       
       // Update token in Redux and localStorage
       dispatch(refreshTokenAction(newToken));
       
+      console.log('[SessionManager] ✅ Token renovado exitosamente');
       setShowModal(false);
       setCountdown(30);
+      countdownStartedRef.current = false;
       clearAllTimers();
     } catch (error) {
       console.error('Error refreshing token:', error);
@@ -86,51 +92,75 @@ export function useSessionManager(): UseSessionManagerReturn {
   }, [token, isRenewing, handleLogout, clearAllTimers, dispatch]);
 
   const startCountdown = useCallback(() => {
+    if (countdownStartedRef.current) {
+      console.log('[SessionManager] Countdown ya iniciado, ignorando llamada duplicada');
+      return;
+    }
+    
+    console.log('[SessionManager] 🚨 Iniciando countdown de 30 segundos');
+    countdownStartedRef.current = true;
     setShowModal(true);
     setCountdown(30);
 
     // Countdown interval
     countdownIntervalRef.current = setInterval(() => {
       setCountdown((prev) => {
+        const newValue = prev <= 1 ? 0 : prev - 1;
+        console.log(`[SessionManager] ⏱️ Countdown: ${newValue}s`);
         if (prev <= 1) {
+          console.log('[SessionManager] ⏰ Countdown terminado - Auto logout');
           handleLogout();
           return 0;
         }
-        return prev - 1;
+        return newValue;
       });
     }, 1000);
 
     // Auto logout after 30 seconds
     autoLogoutTimeoutRef.current = setTimeout(() => {
+      console.log('[SessionManager] ⏰ Timeout de 30s alcanzado - Auto logout');
       handleLogout();
     }, 30000);
   }, [handleLogout]);
 
   useEffect(() => {
     if (!isAuthenticated || !token) {
-      clearAllTimers();
+      console.log('[SessionManager] No autenticado o sin token, timers detenidos');
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+        checkIntervalRef.current = null;
+      }
       return;
     }
+
+    console.log('[SessionManager] Iniciando monitoreo de sesión');
 
     // Check token expiration every 5 seconds
     const checkTokenExpiration = () => {
       const decoded = decodeJWT(token);
       if (!decoded || !decoded.exp) {
+        console.log('[SessionManager] Error decodificando token, cerrando sesión');
         handleLogout();
         return;
       }
 
       const now = Date.now() / 1000; // Current time in seconds
       const timeUntilExpiry = decoded.exp - now;
+      const minutesLeft = Math.floor(timeUntilExpiry / 60);
+      const secondsLeft = Math.floor(timeUntilExpiry % 60);
+
+      console.log(`[SessionManager] Verificando token - Tiempo restante: ${minutesLeft}m ${secondsLeft}s`);
 
       // Token already expired
       if (timeUntilExpiry <= 0) {
+        console.log('[SessionManager] Token expirado, cerrando sesión');
         handleLogout();
         return;
       }
 
       // Token expires in less than 30 seconds - show modal
-      if (timeUntilExpiry <= 30 && !showModal) {
+      if (timeUntilExpiry <= 30 && !countdownStartedRef.current) {
+        console.log('[SessionManager] ⚠️ Token por expirar, mostrando modal');
         startCountdown();
       }
     };
@@ -139,12 +169,17 @@ export function useSessionManager(): UseSessionManagerReturn {
     checkTokenExpiration();
 
     // Set interval to check every 5 seconds
+    console.log('[SessionManager] Timer iniciado - verificando cada 5 segundos');
     checkIntervalRef.current = setInterval(checkTokenExpiration, 5000);
 
     return () => {
-      clearAllTimers();
+      console.log('[SessionManager] Limpiando timer de verificación');
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+        checkIntervalRef.current = null;
+      }
     };
-  }, [token, isAuthenticated, showModal, handleLogout, startCountdown, clearAllTimers]);
+  }, [token, isAuthenticated, handleLogout, startCountdown]);
 
   return {
     showModal,
