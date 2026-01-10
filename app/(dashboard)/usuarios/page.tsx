@@ -165,9 +165,17 @@ export default function UsuariosPage() {
       return;
     }
 
-    // Validar contraseña solo para nuevos usuarios
+    // Validar contraseña: requerida para nuevos usuarios, opcional para edición
     if (!editingUser) {
+      // Nuevo usuario: contraseña requerida
       const passwordValidation = validatePassword(formData.password || '');
+      if (!passwordValidation.valid) {
+        setPasswordErrors(passwordValidation.errors);
+        return;
+      }
+    } else if (formData.password && formData.password.length > 0) {
+      // Editando usuario: si se ingresa contraseña, debe ser válida
+      const passwordValidation = validatePassword(formData.password);
       if (!passwordValidation.valid) {
         setPasswordErrors(passwordValidation.errors);
         return;
@@ -474,34 +482,39 @@ export default function UsuariosPage() {
                   />
                 </div>
 
-                {!editingUser && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Contraseña
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.password || ''}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setFormData({ ...formData, password: value });
-                        if (value.length > 0) {
-                          const validation = validatePassword(value);
-                          setPasswordErrors(validation.errors);
-                        } else {
-                          setPasswordErrors([]);
-                        }
-                      }}
-                      className={`w-full px-3 py-2 bg-white dark:bg-gray-900 border rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-white ${
-                        passwordErrors.length > 0
-                          ? 'border-red-500 dark:border-red-500'
-                          : formData.password && formData.password.length > 0
-                            ? 'border-green-500 dark:border-green-500'
-                            : 'border-gray-200 dark:border-gray-700'
-                      }`}
-                      placeholder="••••••••"
-                    />
-                    {/* Indicadores de requisitos */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {editingUser ? 'Nueva Contraseña (opcional)' : 'Contraseña'}
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.password || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData({ ...formData, password: value });
+                      if (value.length > 0) {
+                        const validation = validatePassword(value);
+                        setPasswordErrors(validation.errors);
+                      } else {
+                        setPasswordErrors([]);
+                      }
+                    }}
+                    className={`w-full px-3 py-2 bg-white dark:bg-gray-900 border rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-white ${
+                      passwordErrors.length > 0
+                        ? 'border-red-500 dark:border-red-500'
+                        : formData.password && formData.password.length > 0
+                          ? 'border-green-500 dark:border-green-500'
+                          : 'border-gray-200 dark:border-gray-700'
+                    }`}
+                    placeholder={editingUser ? 'Dejar vacío para mantener la actual' : '••••••••'}
+                  />
+                  {editingUser && !formData.password && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Si no deseas cambiar la contraseña, deja este campo vacío
+                    </p>
+                  )}
+                  {/* Indicadores de requisitos - solo mostrar si hay texto */}
+                  {formData.password && formData.password.length > 0 && (
                     <div className="mt-2 space-y-1">
                       <p className={`text-xs flex items-center gap-1 ${
                         (formData.password?.length || 0) >= 8 ? 'text-green-500' : 'text-gray-400'
@@ -524,8 +537,8 @@ export default function UsuariosPage() {
                         {/[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'/\`~]/.test(formData.password || '') ? '✓' : '○'} Al menos 1 carácter especial
                       </p>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
