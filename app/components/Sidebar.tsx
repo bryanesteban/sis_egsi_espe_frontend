@@ -14,34 +14,53 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
-  X
+  X,
+  Eye,
+  CheckSquare,
+  UserCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAppSelector } from '@/app/store/hooks';
+
+type UserRole = 'ADMIN' | 'USER' | 'VIEWER' | 'APPROVER';
 
 interface MenuItem {
   name: string;
   icon: React.ComponentType<{ className?: string }>;
   href: string;
   badge?: number;
+  roles: UserRole[]; // Roles que pueden ver este item
 }
 
 const menuItems: MenuItem[] = [
-  { name: 'Dashboard', icon: Home, href: '/home' },
-  { name: 'Políticas', icon: Shield, href: '/politicas' },
-  { name: 'Documentos', icon: FileText, href: '/documentos' },
-  { name: 'Evaluaciones', icon: ClipboardCheck, href: '/evaluaciones' },
-  { name: 'Riesgos', icon: AlertCircle, href: '/riesgos', badge: 3 },
-  { name: 'Proyectos', icon: FolderOpen, href: '/proyectos' },
-  { name: 'Reportes', icon: BarChart3, href: '/reportes' },
-  { name: 'Usuarios', icon: Users, href: '/usuarios' },
-  { name: 'Configuración', icon: Settings, href: '/configuracion' },
+  { name: 'Dashboard', icon: Home, href: '/home', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
+  { name: 'Políticas', icon: Shield, href: '/politicas', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
+  { name: 'Documentos', icon: FileText, href: '/documentos', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
+  { name: 'Evaluaciones', icon: ClipboardCheck, href: '/evaluaciones', roles: ['ADMIN', 'USER', 'APPROVER'] },
+  { name: 'Riesgos', icon: AlertCircle, href: '/riesgos', badge: 3, roles: ['ADMIN', 'USER', 'APPROVER'] },
+  { name: 'Proyectos', icon: FolderOpen, href: '/proyectos', roles: ['ADMIN', 'USER'] },
+  { name: 'Reportes', icon: BarChart3, href: '/reportes', roles: ['ADMIN', 'VIEWER', 'APPROVER'] },
+  // Pantallas específicas por rol
+  { name: 'Panel de Visualización', icon: Eye, href: '/visualizador', roles: ['ADMIN', 'VIEWER'] },
+  { name: 'Panel de Aprobaciones', icon: CheckSquare, href: '/aprobador', roles: ['ADMIN', 'APPROVER'] },
+  { name: 'Mi Espacio', icon: UserCircle, href: '/mi-espacio', roles: ['ADMIN', 'USER'] },
+  // Solo admin
+  { name: 'Usuarios', icon: Users, href: '/usuarios', roles: ['ADMIN'] },
+  { name: 'Configuración', icon: Settings, href: '/configuracion', roles: ['ADMIN'] },
 ];
 
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const pathname = usePathname();
+  const { user } = useAppSelector((state) => state.auth);
+  
+  // Obtener el rol del usuario, por defecto USER si no está definido
+  const userRole = (user?.rolename?.toUpperCase() as UserRole) || 'USER';
+  
+  // Filtrar items del menú según el rol del usuario
+  const filteredMenuItems = menuItems.filter(item => item.roles.includes(userRole));
 
   return (
     <>
@@ -106,7 +125,7 @@ export default function Sidebar() {
 
           {/* Menu Items */}
           <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
 

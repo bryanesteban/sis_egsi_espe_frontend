@@ -5,6 +5,7 @@ import { Users, Plus, Search, Edit, Trash2, Loader2, AlertCircle, RefreshCw, X, 
 import { usersAPI, UserDTO } from '@/lib/api';
 import { useAppDispatch } from '@/app/store/hooks';
 import { showToast } from '@/app/store/slices/toastSlice';
+import RoleGuard from '@/app/components/RoleGuard';
 
 // Validar cédula ecuatoriana
 const validateCedulaEcuatoriana = (cedula: string): { valid: boolean; message: string } => {
@@ -225,26 +226,27 @@ export default function UsuariosPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 sm:gap-3">
-            <Users className="w-6 h-6 sm:w-8 sm:h-8 text-green-600 dark:text-green-400 flex-shrink-0" />
-            <span className="truncate">Gestión de Usuarios</span>
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
-            Administra los usuarios del sistema
-          </p>
+    <RoleGuard allowedRoles={['ADMIN']}>
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 sm:gap-3">
+              <Users className="w-6 h-6 sm:w-8 sm:h-8 text-green-600 dark:text-green-400 flex-shrink-0" />
+              <span className="truncate">Gestión de Usuarios</span>
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
+              Administra los usuarios del sistema
+            </p>
+          </div>
+          <button 
+            onClick={handleNewUser}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors text-sm sm:text-base w-full sm:w-auto"
+          >
+            <Plus className="w-5 h-5" />
+            Nuevo Usuario
+          </button>
         </div>
-        <button 
-          onClick={handleNewUser}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors text-sm sm:text-base w-full sm:w-auto"
-        >
-          <Plus className="w-5 h-5" />
-          Nuevo Usuario
-        </button>
-      </div>
 
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -658,6 +660,7 @@ export default function UsuariosPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </RoleGuard>
   );
 }
