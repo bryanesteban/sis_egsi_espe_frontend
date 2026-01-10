@@ -52,3 +52,51 @@ export const authAPI = {
     return response.data;
   },
 };
+
+// Tipos para usuarios
+export interface UserDTO {
+  id?: string;
+  name: string;
+  lastname: string;
+  cedula: string;
+  username: string;
+  password?: string;
+  roleName: string;
+}
+
+export interface UsersResponse {
+  users: UserDTO[];
+  total: number;
+}
+
+// API de usuarios
+export const usersAPI = {
+  // Obtener todos los usuarios
+  getAll: async (): Promise<UsersResponse> => {
+    const response = await apiClient.get('/users');
+    return response.data;
+  },
+  
+  // Obtener un usuario por ID
+  getById: async (id: string): Promise<UserDTO> => {
+    const response = await apiClient.get(`/users/${id}`);
+    return response.data;
+  },
+  
+  // Crear nuevo usuario
+  create: async (user: UserDTO): Promise<UserDTO> => {
+    const response = await apiClient.post('/users', user);
+    return response.data;
+  },
+  
+  // Actualizar usuario
+  update: async (user: UserDTO): Promise<UserDTO> => {
+    const response = await apiClient.put('/users', user);
+    return response.data;
+  },
+  
+  // Eliminar usuario (soft delete)
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/users/${id}`);
+  },
+};
