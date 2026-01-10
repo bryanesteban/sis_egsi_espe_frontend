@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logout, refreshToken as refreshTokenAction } from '../store/slices/authSlice';
+import { showToast } from '../store/slices/toastSlice';
 import { authAPI } from '@/lib/api';
 
 interface UseSessionManagerReturn {
@@ -73,6 +74,7 @@ export function useSessionManager(): UseSessionManagerReturn {
     clearAllTimers();
     countdownStartedRef.current = false;
     setShowModal(false);
+    dispatch(showToast({ message: 'Sesión expirada. Por favor inicia sesión nuevamente.', type: 'warning' }));
     dispatch(logout());
   }, [dispatch, clearAllTimers]);
 
@@ -96,12 +98,14 @@ export function useSessionManager(): UseSessionManagerReturn {
       dispatch(refreshTokenAction(newToken));
       
       console.log('[SessionManager] ✅ Token renovado exitosamente');
+      dispatch(showToast({ message: 'Sesión renovada correctamente', type: 'success' }));
       setShowModal(false);
       setCountdown(30);
       countdownStartedRef.current = false;
       clearAllTimers();
     } catch (error) {
       console.error('Error refreshing token:', error);
+      dispatch(showToast({ message: 'Error al renovar la sesión', type: 'error' }));
       handleLogout();
     } finally {
       setIsRenewing(false);

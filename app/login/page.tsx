@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks';
 import { loginStart, loginSuccess, loginFailure } from '@/app/store/slices/authSlice';
+import { showToast } from '@/app/store/slices/toastSlice';
 import { authAPI } from '@/lib/api';
 import { Shield, Loader2, Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/app/context/ThemeContext';
@@ -44,12 +45,15 @@ export default function LoginPage() {
         },
       }));
       
+      dispatch(showToast({ message: `¡Bienvenido, ${response.username}!`, type: 'success' }));
+      
       router.push('/home');
     } catch (error: any) {
       const errorMessage = error.response?.data?.mensaje || 
                           error.response?.data?.error || 
                           'Error al iniciar sesión. Verifica tus credenciales.';
       dispatch(loginFailure(errorMessage));
+      dispatch(showToast({ message: errorMessage, type: 'error' }));
     }
   };
 

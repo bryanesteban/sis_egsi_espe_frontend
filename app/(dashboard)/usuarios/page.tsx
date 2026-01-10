@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, Search, Edit, Trash2, Loader2, AlertCircle, RefreshCw, X, Save } from 'lucide-react';
 import { usersAPI, UserDTO } from '@/lib/api';
+import { useAppDispatch } from '@/app/store/hooks';
+import { showToast } from '@/app/store/slices/toastSlice';
 
 // Validar cédula ecuatoriana
 const validateCedulaEcuatoriana = (cedula: string): { valid: boolean; message: string } => {
@@ -65,6 +67,7 @@ const validatePassword = (password: string): { valid: boolean; errors: string[] 
 };
 
 export default function UsuariosPage() {
+  const dispatch = useAppDispatch();
   const [users, setUsers] = useState<UserDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -189,16 +192,19 @@ export default function UsuariosPage() {
         // Actualizar usuario existente
         const updatedUser = await usersAPI.update(formData);
         setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+        dispatch(showToast({ message: 'Usuario actualizado correctamente', type: 'success' }));
       } else {
         // Crear nuevo usuario
         const newUser = await usersAPI.create(formData);
         setUsers([...users, newUser]);
+        dispatch(showToast({ message: 'Usuario creado correctamente', type: 'success' }));
       }
       
       handleCloseModal();
     } catch (err: any) {
       console.error('Error saving user:', err);
-      alert(err.response?.data?.error || 'Error al guardar el usuario');
+      const errorMsg = err.response?.data?.error || 'Error al guardar el usuario';
+      dispatch(showToast({ message: errorMsg, type: 'error' }));
     } finally {
       setSaving(false);
     }
@@ -211,9 +217,10 @@ export default function UsuariosPage() {
     try {
       await usersAPI.delete(id);
       setUsers(users.filter(user => user.id !== id));
+      dispatch(showToast({ message: 'Usuario eliminado correctamente', type: 'success' }));
     } catch (err: any) {
       console.error('Error deleting user:', err);
-      alert('Error al eliminar el usuario');
+      dispatch(showToast({ message: 'Error al eliminar el usuario', type: 'error' }));
     }
   };
 

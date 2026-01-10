@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks';
 import { logout } from '@/app/store/slices/authSlice';
+import { showToast } from '@/app/store/slices/toastSlice';
 import { LogOut, User, Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/app/context/ThemeContext';
 import Sidebar from '@/app/components/Sidebar';
@@ -26,6 +27,7 @@ export default function DashboardLayout({
 
   const handleLogout = () => {
     dispatch(logout());
+    dispatch(showToast({ message: 'Sesión cerrada correctamente', type: 'info' }));
     router.push('/login');
   };
 
