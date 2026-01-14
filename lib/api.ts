@@ -465,3 +465,76 @@ export const egsiPhasesAPI = {
     await apiClient.delete(`/api/v3/egsi/phases/questions/${idQuestion}`);
   },
 };
+
+// ============================================================
+// TIPOS PARA RESPUESTAS EGSI
+// ============================================================
+
+export interface EgsiAnswerDTO {
+  idAnswer: string;
+  idProcess: string;
+  idQuestion: string;
+  idPhase: string;
+  answerValue: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export interface SaveAnswersRequestDTO {
+  idProcess: string;
+  idPhase: string;
+  answers: {
+    idQuestion: string;
+    answerValue: string;
+  }[];
+}
+
+export interface SaveAnswersResponseDTO {
+  message: string;
+  savedCount: number;
+  answers: EgsiAnswerDTO[];
+}
+
+// ============================================================
+// API DE RESPUESTAS EGSI
+// ============================================================
+
+export const egsiAnswersAPI = {
+  // Guardar múltiples respuestas
+  save: async (request: SaveAnswersRequestDTO): Promise<SaveAnswersResponseDTO> => {
+    const response = await apiClient.post('/api/v3/egsi/answers', request);
+    return response.data;
+  },
+
+  // Obtener respuestas por proceso
+  getByProcess: async (idProcess: string): Promise<EgsiAnswerDTO[]> => {
+    const response = await apiClient.get(`/api/v3/egsi/answers/process/${idProcess}`);
+    return response.data;
+  },
+
+  // Obtener respuestas por proceso y fase
+  getByProcessAndPhase: async (idProcess: string, idPhase: string): Promise<EgsiAnswerDTO[]> => {
+    const response = await apiClient.get(`/api/v3/egsi/answers/process/${idProcess}/phase/${idPhase}`);
+    return response.data;
+  },
+
+  // Obtener respuestas como mapa (idQuestion -> answerValue)
+  getAnswersMap: async (idProcess: string, idPhase: string): Promise<Record<string, string>> => {
+    const response = await apiClient.get(`/api/v3/egsi/answers/process/${idProcess}/phase/${idPhase}/map`);
+    return response.data;
+  },
+
+  // Obtener progreso de una fase
+  getProgress: async (idProcess: string, idPhase: string): Promise<{ progress: number }> => {
+    const response = await apiClient.get(`/api/v3/egsi/answers/process/${idProcess}/phase/${idPhase}/progress`);
+    return response.data;
+  },
+
+  // Eliminar respuesta
+  delete: async (idAnswer: string): Promise<void> => {
+    await apiClient.delete(`/api/v3/egsi/answers/${idAnswer}`);
+  },
+};

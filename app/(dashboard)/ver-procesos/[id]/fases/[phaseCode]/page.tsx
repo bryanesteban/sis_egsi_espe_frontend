@@ -17,7 +17,7 @@ import {
   Plus,
   Trash2
 } from 'lucide-react';
-import { processAPI, ProcessEgsiDTO, egsiPhasesAPI } from '@/lib/api';
+import { processAPI, ProcessEgsiDTO, egsiPhasesAPI, egsiAnswersAPI } from '@/lib/api';
 import { useParams, useRouter } from 'next/navigation';
 import { useAppDispatch } from '@/app/store/hooks';
 import { showToast } from '@/app/store/slices/toastSlice';
@@ -215,12 +215,44 @@ export default function ResponderFasePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingAnswers, setLoadingAnswers] = useState(false);
   
   // Estado de respuestas
   const [answers, setAnswers] = useState<Answers>({});
   
   // Sección actual (para navegación)
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+
+  // Cargar respuestas guardadas
+  const loadSavedAnswers = async () => {
+    try {
+      setLoadingAnswers(true);
+      const savedAnswers = await egsiAnswersAPI.getAnswersMap(processId, phaseId);
+      
+      // Convertir las respuestas guardadas al formato que usa el estado
+      const loadedAnswers: Answers = {};
+      for (const [questionId, value] of Object.entries(savedAnswers)) {
+        // Intentar parsear como JSON (para tablas)
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) {
+            loadedAnswers[questionId] = parsed;
+          } else {
+            loadedAnswers[questionId] = value;
+          }
+        } catch {
+          loadedAnswers[questionId] = value;
+        }
+      }
+      
+      setAnswers(loadedAnswers);
+      console.log('Respuestas cargadas:', loadedAnswers);
+    } catch (err) {
+      console.log('No hay respuestas guardadas o error al cargar:', err);
+    } finally {
+      setLoadingAnswers(false);
+    }
+  };
 
   // Cargar datos
   const fetchData = async () => {
@@ -271,6 +303,9 @@ export default function ResponderFasePage() {
             })
           })).sort((a, b) => a.order - b.order)
         });
+        
+        // Cargar respuestas guardadas después de cargar la fase
+        await loadSavedAnswers();
       } catch (phaseErr: any) {
         console.error('Error cargando fase:', phaseErr);
         setError('No se pudo cargar la fase. Verifique que existe en la base de datos.');
@@ -298,19 +333,31 @@ export default function ResponderFasePage() {
     }));
   };
 
-  // Guardar respuestas
+  // Guardar respuestas en el backend
   const handleSave = async () => {
     try {
       setSaving(true);
       
-      // Aquí se implementaría la llamada al API para guardar las respuestas
-      // Por ahora solo mostramos un mensaje de éxito
-      console.log('Respuestas a guardar:', answers);
+      // Preparar las respuestas para enviar al backend
+      const answersToSave = Object.entries(answers).map(([questionId, value]) => ({
+        idQuestion: questionId,
+        // Convertir arrays a JSON string para tablas
+        answerValue: Array.isArray(value) ? JSON.stringify(value) : String(value),
+      }));
+
+      // Llamar al API para guardar
+      const response = await egsiAnswersAPI.save({
+        idProcess: processId,
+        idPhase: phaseId,
+        answers: answersToSave,
+      });
       
-      // Simular guardado
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('Respuestas guardadas:', response);
       
-      dispatch(showToast({ message: 'Respuestas guardadas correctamente', type: 'success' }));
+      dispatch(showToast({ 
+        message: `${response.savedCount} respuestas guardadas correctamente`, 
+        type: 'success' 
+      }));
     } catch (err: any) {
       console.error('Error saving answers:', err);
       dispatch(showToast({ 
