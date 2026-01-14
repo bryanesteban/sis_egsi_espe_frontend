@@ -13,7 +13,9 @@ import {
   Calendar,
   Table,
   Type,
-  HelpCircle
+  HelpCircle,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { processAPI, ProcessEgsiDTO, egsiPhasesAPI } from '@/lib/api';
 import { useParams, useRouter } from 'next/navigation';
@@ -31,6 +33,20 @@ const QUESTION_TYPES = {
   TABLA: { icon: Table, label: 'Tabla' },
 };
 
+// Configuración de columna de tabla
+interface TableColumnConfig {
+  key: string;
+  header: string;
+  width?: string;
+}
+
+// Configuración de tabla
+interface TableConfig {
+  columns: TableColumnConfig[];
+  minRows?: number;
+  maxRows?: number;
+}
+
 // Estructura de pregunta
 interface Question {
   idQuestion: string;
@@ -40,7 +56,7 @@ interface Question {
   required: boolean;
   placeholder?: string;
   maxLength?: number;
-  tableConfig?: any;
+  tableConfig?: TableConfig;
   order: number;
 }
 
@@ -67,13 +83,122 @@ interface Answers {
   [questionId: string]: string | string[][];
 }
 
+// Componente Editor de Tabla
+interface TableEditorProps {
+  columns: TableColumnConfig[];
+  value: string[][];
+  onChange: (data: string[][]) => void;
+  minRows?: number;
+  maxRows?: number;
+}
+
+function TableEditor({ columns, value, onChange, minRows = 1, maxRows = 50 }: TableEditorProps) {
+  // Inicializar con filas mínimas si está vacío
+  const rows = value.length > 0 ? value : Array(minRows).fill(null).map(() => columns.map(() => ''));
+
+  const addRow = () => {
+    if (rows.length < maxRows) {
+      const newRow = columns.map(() => '');
+      onChange([...rows, newRow]);
+    }
+  };
+
+  const removeRow = (rowIndex: number) => {
+    if (rows.length > minRows) {
+      const newRows = rows.filter((_, index) => index !== rowIndex);
+      onChange(newRows);
+    }
+  };
+
+  const updateCell = (rowIndex: number, colIndex: number, newValue: string) => {
+    const newRows = rows.map((row, rIdx) => {
+      if (rIdx === rowIndex) {
+        return row.map((cell, cIdx) => (cIdx === colIndex ? newValue : cell));
+      }
+      return row;
+    });
+    onChange(newRows);
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="bg-gray-50 dark:bg-gray-700">
+            <th className="w-10 px-2 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-600">
+              #
+            </th>
+            {columns.map((col, idx) => (
+              <th
+                key={col.key || idx}
+                className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-600"
+                style={{ width: col.width || 'auto' }}
+              >
+                {col.header}
+              </th>
+            ))}
+            <th className="w-12 px-2 py-3 border-b border-gray-200 dark:border-gray-600"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={rowIndex} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <td className="px-2 py-2 text-sm text-gray-400 dark:text-gray-500 text-center">
+                {rowIndex + 1}
+              </td>
+              {columns.map((col, colIndex) => (
+                <td key={col.key || colIndex} className="px-2 py-2">
+                  <input
+                    type="text"
+                    value={row[colIndex] || ''}
+                    onChange={(e) => updateCell(rowIndex, colIndex, e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    placeholder={`Ingrese ${col.header.toLowerCase()}...`}
+                  />
+                </td>
+              ))}
+              <td className="px-2 py-2">
+                <button
+                  type="button"
+                  onClick={() => removeRow(rowIndex)}
+                  disabled={rows.length <= minRows}
+                  className="p-2 text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Eliminar fila"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      
+      {/* Botón para agregar fila */}
+      <div className="p-3 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+        <button
+          type="button"
+          onClick={addRow}
+          disabled={rows.length >= maxRows}
+          className="flex items-center gap-2 px-4 py-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Agregar fila</span>
+        </button>
+        <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+          {rows.length} de {maxRows} filas máximas
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function ResponderFasePage() {
   const params = useParams();
   const router = useRouter();
   const dispatch = useAppDispatch();
   
   const processId = params.id as string;
-  const phaseCode = params.phaseCode as string;
+  const phaseId = params.phaseCode as string; // Ahora es el ID de la fase
   
   const [process, setProcess] = useState<ProcessEgsiDTO | null>(null);
   const [phase, setPhase] = useState<PhaseData | null>(null);
@@ -97,24 +222,32 @@ export default function ResponderFasePage() {
       const processData = await processAPI.getById(processId);
       setProcess(processData);
       
-      // Cargar fases desde el API de fases EGSI
+      // Cargar fase por ID directamente desde el API
       try {
-        const phasesResponse = await egsiPhasesAPI.getActive();
-        // Buscar la fase que corresponde al código
-        const phaseIndex = parseInt(phaseCode.replace('FASE', '')) - 1;
-        if (phasesResponse.egsiPhases && phasesResponse.egsiPhases[phaseIndex]) {
-          const phaseData = phasesResponse.egsiPhases[phaseIndex];
-          setPhase({
-            idPhase: phaseData.idPhase,
-            title: phaseData.title,
-            description: phaseData.description,
-            order: phaseData.order,
-            sections: phaseData.sections.map(s => ({
-              idSection: s.idSection,
-              title: s.title,
-              description: s.description,
-              order: s.order,
-              questions: s.questions.map(q => ({
+        const phaseData = await egsiPhasesAPI.getById(phaseId);
+        setPhase({
+          idPhase: phaseData.idPhase,
+          title: phaseData.title,
+          description: phaseData.description,
+          order: phaseData.order,
+          sections: phaseData.sections.map(s => ({
+            idSection: s.idSection,
+            title: s.title,
+            description: s.description,
+            order: s.order,
+            questions: s.questions.map(q => {
+              // Parsear tableConfig si viene como string
+              let parsedTableConfig = q.tableConfig;
+              if (typeof q.tableConfig === 'string') {
+                try {
+                  parsedTableConfig = JSON.parse(q.tableConfig);
+                } catch (e) {
+                  console.error('Error parseando tableConfig:', e);
+                  parsedTableConfig = undefined;
+                }
+              }
+              
+              return {
                 idQuestion: q.idQuestion,
                 title: q.title,
                 description: q.description,
@@ -122,16 +255,15 @@ export default function ResponderFasePage() {
                 required: q.required,
                 placeholder: q.placeholder,
                 maxLength: q.maxLength,
-                tableConfig: q.tableConfig,
+                tableConfig: parsedTableConfig,
                 order: q.order,
-              }))
-            }))
-          });
-        }
-      } catch (phaseErr) {
-        console.log('Usando datos de fase por defecto');
-        // Usar datos por defecto si no hay fases en el backend
-        setPhase(getDefaultPhase(phaseCode));
+              };
+            })
+          })).sort((a, b) => a.order - b.order)
+        });
+      } catch (phaseErr: any) {
+        console.error('Error cargando fase:', phaseErr);
+        setError('No se pudo cargar la fase. Verifique que existe en la base de datos.');
       }
       
     } catch (err: any) {
@@ -142,82 +274,11 @@ export default function ResponderFasePage() {
     }
   };
 
-  // Datos por defecto de fase
-  const getDefaultPhase = (code: string): PhaseData => {
-    const phaseNum = parseInt(code.replace('FASE', ''));
-    return {
-      idPhase: code,
-      title: `Fase ${phaseNum}: ${getPhaseTitle(code)}`,
-      description: getPhaseDescription(code),
-      order: phaseNum,
-      sections: [
-        {
-          idSection: `${code}-S1`,
-          title: 'Información General',
-          description: 'Complete la información general de esta fase',
-          order: 1,
-          questions: [
-            {
-              idQuestion: `${code}-Q1`,
-              title: 'Descripción del avance',
-              description: 'Describa el avance actual de esta fase',
-              inputType: 'TEXTO',
-              required: true,
-              placeholder: 'Ingrese una descripción detallada...',
-              maxLength: 1000,
-              order: 1,
-            },
-            {
-              idQuestion: `${code}-Q2`,
-              title: 'Fecha de inicio',
-              description: 'Fecha en que se inició esta fase',
-              inputType: 'DATE',
-              required: true,
-              order: 2,
-            },
-            {
-              idQuestion: `${code}-Q3`,
-              title: 'Observaciones',
-              description: 'Observaciones adicionales',
-              inputType: 'TEXTO',
-              required: false,
-              placeholder: 'Ingrese observaciones si las tiene...',
-              maxLength: 500,
-              order: 3,
-            },
-          ],
-        },
-      ],
-    };
-  };
-
-  const getPhaseTitle = (code: string): string => {
-    const titles: { [key: string]: string } = {
-      'FASE1': 'Diagnóstico Inicial',
-      'FASE2': 'Análisis de Riesgos',
-      'FASE3': 'Planificación',
-      'FASE4': 'Implementación',
-      'FASE5': 'Monitoreo y Control',
-    };
-    return titles[code] || 'Fase';
-  };
-
-  const getPhaseDescription = (code: string): string => {
-    const descriptions: { [key: string]: string } = {
-      'FASE1': 'Evaluación del estado actual de seguridad de la información',
-      'FASE2': 'Identificación y análisis de riesgos de seguridad',
-      'FASE3': 'Definición del plan de implementación del EGSI',
-      'FASE4': 'Ejecución de controles y medidas de seguridad',
-      'FASE5': 'Seguimiento y control de las medidas implementadas',
-    };
-    return descriptions[code] || '';
-  };
-
   useEffect(() => {
-    if (processId && phaseCode) {
+    if (processId && phaseId) {
       fetchData();
     }
-  }, [processId, phaseCode]);
+  }, [processId, phaseId]);
 
   // Actualizar respuesta
   const handleAnswerChange = (questionId: string, value: string | string[][]) => {
@@ -325,11 +386,23 @@ export default function ResponderFasePage() {
         )}
 
         {question.inputType === 'TABLA' && (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-              <Table className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-              Editor de tabla - Próximamente
-            </p>
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden">
+            {question.tableConfig && question.tableConfig.columns && question.tableConfig.columns.length > 0 ? (
+              <TableEditor
+                columns={question.tableConfig.columns}
+                value={(value as string[][]) || []}
+                onChange={(data) => handleAnswerChange(question.idQuestion, data)}
+                minRows={question.tableConfig.minRows}
+                maxRows={question.tableConfig.maxRows}
+              />
+            ) : (
+              <div className="p-4 text-center">
+                <Table className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No hay configuración de columnas para esta tabla
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

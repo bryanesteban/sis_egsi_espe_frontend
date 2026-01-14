@@ -7,52 +7,36 @@ import {
   AlertCircle, 
   RefreshCw,
   ChevronRight,
-  ChevronLeft,
   CheckCircle2,
   Clock,
   Lock,
   Play,
   FileText,
-  ArrowLeft
+  ArrowLeft,
+  BookOpen,
+  Shield,
+  Settings,
+  Target,
+  ClipboardList
 } from 'lucide-react';
-import { processAPI, ProcessEgsiDTO } from '@/lib/api';
+import { processAPI, ProcessEgsiDTO, egsiPhasesAPI, EgsiPhaseDTO } from '@/lib/api';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import RoleGuard from '@/app/components/RoleGuard';
 
-// Fases estándar EGSI
-const EGSI_PHASES = [
-  { 
-    code: 'FASE1', 
-    name: 'Fase 1: Diagnóstico Inicial', 
-    description: 'Evaluación del estado actual de seguridad de la información',
-    icon: FileText
-  },
-  { 
-    code: 'FASE2', 
-    name: 'Fase 2: Análisis de Riesgos', 
-    description: 'Identificación y análisis de riesgos de seguridad',
-    icon: AlertCircle
-  },
-  { 
-    code: 'FASE3', 
-    name: 'Fase 3: Planificación', 
-    description: 'Definición del plan de implementación del EGSI',
-    icon: Clock
-  },
-  { 
-    code: 'FASE4', 
-    name: 'Fase 4: Implementación', 
-    description: 'Ejecución de controles y medidas de seguridad',
-    icon: Play
-  },
-  { 
-    code: 'FASE5', 
-    name: 'Fase 5: Monitoreo y Control', 
-    description: 'Seguimiento y control de las medidas implementadas',
-    icon: Layers
-  },
-];
+// Iconos disponibles para fases
+const PHASE_ICONS: Record<number, React.ComponentType<{ className?: string }>> = {
+  1: FileText,
+  2: AlertCircle,
+  3: Clock,
+  4: Play,
+  5: Layers,
+  6: Shield,
+  7: Settings,
+  8: Target,
+  9: BookOpen,
+  10: ClipboardList,
+};
 
 // Estados de fase
 const PHASE_STATUS = {
@@ -62,14 +46,16 @@ const PHASE_STATUS = {
 };
 
 interface PhaseData {
-  code: string;
-  name: string;
+  idPhase: string;
+  title: string;
   description: string;
+  order: number;
   icon: React.ComponentType<{ className?: string }>;
   status: 'LOCKED' | 'ACTIVE' | 'COMPLETED';
   progress: number;
   questionsAnswered: number;
   totalQuestions: number;
+  totalSections: number;
 }
 
 export default function FasesProcesoPage() {
@@ -80,54 +66,84 @@ export default function FasesProcesoPage() {
   const [process, setProcess] = useState<ProcessEgsiDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Simular fases con estado (esto debería venir del backend)
   const [phases, setPhases] = useState<PhaseData[]>([]);
 
-  // Cargar proceso
-  const fetchProcess = async () => {
+  // Cargar proceso y fases desde la base de datos
+  const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await processAPI.getById(processId);
-      setProcess(data);
       
-      // Determinar el estado de las fases basado en customPhase del proceso
-      const currentPhaseIndex = EGSI_PHASES.findIndex(p => p.code === data.customPhase);
+      // Cargar proceso y fases en paralelo
+      const [processData, phasesResponse] = await Promise.all([
+        processAPI.getById(processId),
+        egsiPhasesAPI.getActive() // Solo fases activas
+      ]);
       
-      const phasesData: PhaseData[] = EGSI_PHASES.map((phase, index) => {
+      setProcess(processData);
+      
+      // Determinar qué fase está activa basándose en customPhase del proceso
+      const currentPhaseOrder = getCurrentPhaseOrder(processData.customPhase);
+      
+      // Transformar las fases de la BD al formato que necesitamos
+      const phasesData: PhaseData[] = phasesResponse.egsiPhases.map((phase) => {
+        // Contar total de preguntas en todas las secciones
+        const totalQuestions = phase.sections.reduce(
+          (acc, section) => acc + section.questions.length, 
+          0
+        );
+        
+        // Determinar estado basado en el orden
         let status: 'LOCKED' | 'ACTIVE' | 'COMPLETED' = 'LOCKED';
         let progress = 0;
+        let questionsAnswered = 0;
         
-        if (index < currentPhaseIndex) {
+        if (phase.order < currentPhaseOrder) {
           status = 'COMPLETED';
           progress = 100;
-        } else if (index === currentPhaseIndex) {
+          questionsAnswered = totalQuestions;
+        } else if (phase.order === currentPhaseOrder) {
           status = 'ACTIVE';
-          progress = 30; // Esto debería calcularse basado en respuestas
+          progress = 30; // TODO: Calcular basado en respuestas guardadas
+          questionsAnswered = Math.floor(totalQuestions * 0.3);
         }
         
         return {
-          ...phase,
+          idPhase: phase.idPhase,
+          title: phase.title,
+          description: phase.description || 'Sin descripción',
+          order: phase.order,
+          icon: PHASE_ICONS[phase.order] || FileText,
           status,
           progress,
-          questionsAnswered: status === 'COMPLETED' ? 10 : (status === 'ACTIVE' ? 3 : 0),
-          totalQuestions: 10,
+          questionsAnswered,
+          totalQuestions,
+          totalSections: phase.sections.length,
         };
       });
       
+      // Ordenar por order
+      phasesData.sort((a, b) => a.order - b.order);
+      
       setPhases(phasesData);
     } catch (err: any) {
-      console.error('Error fetching process:', err);
-      setError(err.response?.data?.error || 'Error al cargar el proceso');
+      console.error('Error fetching data:', err);
+      setError(err.response?.data?.error || 'Error al cargar los datos');
     } finally {
       setLoading(false);
     }
   };
 
+  // Convertir customPhase (FASE1, FASE2, etc.) a número de orden
+  const getCurrentPhaseOrder = (customPhase: string | undefined): number => {
+    if (!customPhase) return 1;
+    const match = customPhase.match(/FASE(\d+)/i);
+    return match ? parseInt(match[1], 10) : 1;
+  };
+
   useEffect(() => {
     if (processId) {
-      fetchProcess();
+      fetchData();
     }
   }, [processId]);
 
@@ -159,7 +175,7 @@ export default function FasesProcesoPage() {
           </div>
           
           <button
-            onClick={fetchProcess}
+            onClick={fetchData}
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl transition-colors"
           >
@@ -205,7 +221,7 @@ export default function FasesProcesoPage() {
             <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
             <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
             <button
-              onClick={fetchProcess}
+              onClick={fetchData}
               className="ml-auto px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 rounded-lg transition-colors"
             >
               Reintentar
@@ -229,7 +245,7 @@ export default function FasesProcesoPage() {
               const isLocked = phase.status === 'LOCKED';
               
               return (
-                <div key={phase.code} className="relative">
+                <div key={phase.idPhase} className="relative">
                   {/* Connector Line */}
                   {index < phases.length - 1 && (
                     <div className="absolute left-6 top-20 w-0.5 h-8 bg-gray-200 dark:bg-gray-700" />
@@ -249,7 +265,7 @@ export default function FasesProcesoPage() {
                             {/* Header */}
                             <div className="flex items-center gap-3 mb-2">
                               <h3 className="text-lg font-semibold text-gray-400 dark:text-gray-500">
-                                {phase.name}
+                                Fase {phase.order}: {phase.title}
                               </h3>
                               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
                                 <StatusIcon className="w-3.5 h-3.5" />
@@ -272,7 +288,7 @@ export default function FasesProcesoPage() {
                   ) : (
                     // Fase activa o completada - clickeable
                     <Link
-                      href={`/ver-procesos/${processId}/fases/${phase.code}`}
+                      href={`/ver-procesos/${processId}/fases/${phase.idPhase}`}
                       className="block bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-lg transition-all group"
                     >
                       <div className="p-6">
@@ -286,7 +302,7 @@ export default function FasesProcesoPage() {
                             {/* Header */}
                             <div className="flex items-center gap-3 mb-2">
                               <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                                {phase.name}
+                                Fase {phase.order}: {phase.title}
                               </h3>
                               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
                                 <StatusIcon className="w-3.5 h-3.5" />
