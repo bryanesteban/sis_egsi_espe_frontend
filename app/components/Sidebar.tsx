@@ -38,7 +38,8 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { name: 'Dashboard', icon: Home, href: '/home', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
-  { name: 'Procesos EGSI', icon: FolderOpen, href: '/procesos', roles: ['ADMIN', 'USER'] },
+  { name: 'Ver Procesos', icon: Eye, href: '/ver-procesos', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
+  { name: 'Gestión de Procesos', icon: FolderOpen, href: '/procesos', roles: ['ADMIN'] },
   { name: 'Gestión de Fases', icon: Layers, href: '/fases', roles: ['ADMIN'] },
   { name: 'Cuestionarios', icon: ClipboardCheck, href: '/cuestionarios', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
   { name: 'Políticas', icon: Shield, href: '/politicas', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
