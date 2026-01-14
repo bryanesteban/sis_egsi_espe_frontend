@@ -44,6 +44,22 @@ const QUESTIONNAIRE_PHASES = [
   { code: 'FASE8', name: 'Fase 8 - Certificación' },
 ];
 
+// Función para convertir fecha de yyyy-MM-dd a dd/MM/yyyy (para backend)
+const formatDateToBackend = (dateStr: string): string => {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}/${month}/${year}`;
+};
+
+// Función para convertir fecha de dd/MM/yyyy a yyyy-MM-dd (para input HTML)
+const formatDateToInput = (dateStr: string): string => {
+  if (!dateStr) return '';
+  // Si ya está en formato yyyy-MM-dd, retornarlo
+  if (dateStr.includes('-')) return dateStr;
+  const [day, month, year] = dateStr.split('/');
+  return `${year}-${month}-${day}`;
+};
+
 export default function ProcesosPage() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
@@ -101,8 +117,8 @@ export default function ProcesosPage() {
       idProcess: process.idProcess,
       name: process.name,
       description: process.description,
-      dateBegin: process.dateBegin,
-      dateEnd: process.dateEnd,
+      dateBegin: formatDateToInput(process.dateBegin),
+      dateEnd: formatDateToInput(process.dateEnd),
       status: process.status,
       customPhase: process.customPhase || 'FASE1',
     });
@@ -169,15 +185,22 @@ export default function ProcesosPage() {
     try {
       setSaving(true);
       
+      // Preparar datos con fechas en formato dd/MM/yyyy para el backend
+      const dataToSend: ProcessEgsiDTO = {
+        ...formData,
+        dateBegin: formatDateToBackend(formData.dateBegin),
+        dateEnd: formatDateToBackend(formData.dateEnd),
+      };
+      
       if (editingProcess) {
         // Actualizar proceso existente
-        const updatedProcess = await processAPI.update(formData);
+        const updatedProcess = await processAPI.update(dataToSend);
         setProcesses(processes.map(p => p.idProcess === updatedProcess.idProcess ? updatedProcess : p));
         dispatch(showToast({ message: 'Proceso actualizado correctamente', type: 'success' }));
       } else {
         // Crear nuevo proceso
-        const processToCreate = {
-          ...formData,
+        const processToCreate: ProcessEgsiDTO = {
+          ...dataToSend,
           userCreator: user?.username || '',
         };
         const response = await processAPI.create(processToCreate);
@@ -237,7 +260,7 @@ export default function ProcesosPage() {
               <FolderKanban className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Procesos EGSI</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestión de Procesos</h1>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Gestión de procesos de implementación del EGSI
               </p>

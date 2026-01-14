@@ -300,3 +300,167 @@ export const questionariesAPI = {
     return response.data;
   },
 };
+
+// ============================================================
+// TIPOS PARA FASES EGSI ESTÁNDAR (v3)
+// ============================================================
+
+export interface TableColumnConfig {
+  key: string;
+  header: string;
+  width?: string;
+}
+
+export interface TableConfig {
+  columns: TableColumnConfig[];
+  minRows?: number;
+  maxRows?: number;
+}
+
+export interface EgsiQuestionDTO {
+  idQuestion: string;
+  title: string;
+  description?: string;
+  inputType: 'TEXTO' | 'DATE' | 'TABLA';
+  required: boolean;
+  placeholder?: string;
+  maxLength?: number;
+  tableConfig?: TableConfig;
+  order: number;
+}
+
+export interface EgsiSectionDTO {
+  idSection: string;
+  title: string;
+  description?: string;
+  order: number;
+  questions: EgsiQuestionDTO[];
+}
+
+export interface EgsiPhaseDTO {
+  idPhase: string;
+  title: string;
+  description?: string;
+  order: number;
+  isActive: boolean;
+  sections: EgsiSectionDTO[];
+}
+
+export interface EgsiPhasesResponseDTO {
+  totalPhases: number;
+  activePhases: number;
+  totalSections: number;
+  totalQuestions: number;
+  egsiPhases: EgsiPhaseDTO[];
+}
+
+export interface CreateQuestionRequestDTO {
+  title: string;
+  description?: string;
+  inputType: 'TEXTO' | 'DATE' | 'TABLA';
+  required: boolean;
+  placeholder?: string;
+  maxLength?: number;
+  tableConfig?: string;
+  order: number;
+}
+
+export interface CreateSectionRequestDTO {
+  title: string;
+  description?: string;
+  order: number;
+  questions?: CreateQuestionRequestDTO[];
+}
+
+export interface CreatePhaseRequestDTO {
+  title: string;
+  description?: string;
+  order: number;
+  isActive?: boolean;
+  sections?: CreateSectionRequestDTO[];
+}
+
+export interface SaveAllPhasesRequestDTO {
+  phases: CreatePhaseRequestDTO[];
+}
+
+// ============================================================
+// API DE FASES EGSI ESTÁNDAR (v3)
+// ============================================================
+
+export const egsiPhasesAPI = {
+  // Obtener todas las fases con secciones y preguntas
+  getAll: async (): Promise<EgsiPhasesResponseDTO> => {
+    const response = await apiClient.get('/api/v3/egsi/phases');
+    return response.data;
+  },
+
+  // Obtener solo las fases activas
+  getActive: async (): Promise<EgsiPhasesResponseDTO> => {
+    const response = await apiClient.get('/api/v3/egsi/phases/active');
+    return response.data;
+  },
+
+  // Obtener una fase por ID
+  getById: async (idPhase: string): Promise<EgsiPhaseDTO> => {
+    const response = await apiClient.get(`/api/v3/egsi/phases/${idPhase}`);
+    return response.data;
+  },
+
+  // Obtener estadísticas
+  getStatistics: async (): Promise<EgsiPhasesResponseDTO> => {
+    const response = await apiClient.get('/api/v3/egsi/phases/statistics');
+    return response.data;
+  },
+
+  // Crear nueva fase
+  create: async (phase: CreatePhaseRequestDTO): Promise<EgsiPhaseDTO> => {
+    const response = await apiClient.post('/api/v3/egsi/phases', phase);
+    return response.data;
+  },
+
+  // Guardar todas las fases (reemplaza las existentes)
+  saveAll: async (request: SaveAllPhasesRequestDTO): Promise<EgsiPhasesResponseDTO> => {
+    const response = await apiClient.post('/api/v3/egsi/phases/save-all', request);
+    return response.data;
+  },
+
+  // Actualizar fase
+  update: async (idPhase: string, phase: CreatePhaseRequestDTO): Promise<EgsiPhaseDTO> => {
+    const response = await apiClient.put(`/api/v3/egsi/phases/${idPhase}`, phase);
+    return response.data;
+  },
+
+  // Activar/Desactivar fase
+  toggleActive: async (idPhase: string): Promise<EgsiPhaseDTO> => {
+    const response = await apiClient.patch(`/api/v3/egsi/phases/${idPhase}/toggle-active`);
+    return response.data;
+  },
+
+  // Eliminar fase
+  delete: async (idPhase: string): Promise<void> => {
+    await apiClient.delete(`/api/v3/egsi/phases/${idPhase}`);
+  },
+
+  // Agregar sección a una fase
+  addSection: async (idPhase: string, section: CreateSectionRequestDTO): Promise<EgsiSectionDTO> => {
+    const response = await apiClient.post(`/api/v3/egsi/phases/${idPhase}/sections`, section);
+    return response.data;
+  },
+
+  // Agregar pregunta a una sección
+  addQuestion: async (idSection: string, question: CreateQuestionRequestDTO): Promise<EgsiQuestionDTO> => {
+    const response = await apiClient.post(`/api/v3/egsi/phases/sections/${idSection}/questions`, question);
+    return response.data;
+  },
+
+  // Eliminar sección
+  deleteSection: async (idSection: string): Promise<void> => {
+    await apiClient.delete(`/api/v3/egsi/phases/sections/${idSection}`);
+  },
+
+  // Eliminar pregunta
+  deleteQuestion: async (idQuestion: string): Promise<void> => {
+    await apiClient.delete(`/api/v3/egsi/phases/questions/${idQuestion}`);
+  },
+};

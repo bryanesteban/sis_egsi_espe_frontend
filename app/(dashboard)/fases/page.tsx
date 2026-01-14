@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -18,26 +18,25 @@ import {
   X,
   CheckCircle2,
   Layers,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { useAppDispatch } from '@/app/store/hooks';
 import { showToast } from '@/app/store/slices/toastSlice';
 import RoleGuard from '@/app/components/RoleGuard';
+import { 
+  egsiPhasesAPI, 
+  EgsiPhaseDTO, 
+  EgsiSectionDTO, 
+  EgsiQuestionDTO,
+  CreatePhaseRequestDTO,
+  CreateSectionRequestDTO,
+  CreateQuestionRequestDTO,
+  TableConfig
+} from '@/lib/api';
 
-// ============ TIPOS ============
-interface TableColumn {
-  key: string;
-  header: string;
-  width?: string;
-}
-
-interface TableConfig {
-  columns: TableColumn[];
-  minRows?: number;
-  maxRows?: number;
-}
-
-interface Question {
+// ============ TIPOS LOCALES (con campos UI) ============
+interface QuestionLocal {
   id: string;
   title: string;
   description: string;
@@ -46,185 +45,124 @@ interface Question {
   placeholder?: string;
   maxLength?: number;
   tableConfig?: TableConfig;
+  order: number;
 }
 
-interface Section {
+interface SectionLocal {
   id: string;
   title: string;
   description: string;
   order: number;
-  questions: Question[];
+  questions: QuestionLocal[];
   isExpanded: boolean;
 }
 
-interface Phase {
+interface PhaseLocal {
   id: string;
   title: string;
   description: string;
   order: number;
-  sections: Section[];
+  sections: SectionLocal[];
   isExpanded: boolean;
   isActive: boolean;
 }
 
-// ============ DATOS DE PRUEBA - FASES EGSI ESTÁNDAR ============
-const DEFAULT_PHASES: Phase[] = [
-  {
-    id: 'phase-001',
-    title: 'Fase 1: Diagnóstico Inicial',
-    description: 'Evaluación del estado actual de la seguridad de la información en la institución.',
-    order: 1,
-    isExpanded: false,
-    isActive: true,
-    sections: [
-      {
-        id: 'sec-001',
-        title: '1.1 Información General de la Institución',
-        description: 'Complete la información básica de identificación institucional.',
-        order: 1,
-        isExpanded: false,
-        questions: [
-          { id: 'q1', title: 'Nombre de la Institución', description: 'Ingrese el nombre oficial completo.', inputType: 'TEXTO', required: true, placeholder: 'Ej: Universidad de las Fuerzas Armadas ESPE' },
-          { id: 'q2', title: 'Fecha de Inicio del Diagnóstico', description: 'Seleccione la fecha de inicio.', inputType: 'DATE', required: true },
-          { id: 'q3', title: 'Responsable del Proceso', description: 'Nombre del funcionario responsable.', inputType: 'TEXTO', required: true, placeholder: 'Ej: Ing. Juan Pérez' }
-        ]
-      },
-      {
-        id: 'sec-002',
-        title: '1.2 Alcance del Sistema de Gestión',
-        description: 'Defina el alcance del SGSI.',
-        order: 2,
-        isExpanded: false,
-        questions: [
-          { id: 'q4', title: 'Descripción del Alcance', description: 'Describa detalladamente el alcance del SGSI.', inputType: 'TEXTO', required: true, placeholder: 'Describa el alcance...', maxLength: 2000 },
-          { id: 'q5', title: 'Ubicaciones Físicas', description: 'Liste las ubicaciones dentro del alcance.', inputType: 'TABLA', required: true, tableConfig: {
-            columns: [
-              { key: 'ubicacion', header: 'Ubicación', width: '30%' },
-              { key: 'direccion', header: 'Dirección', width: '40%' },
-              { key: 'responsable', header: 'Responsable', width: '30%' }
-            ], minRows: 1, maxRows: 20
-          }}
-        ]
-      }
-    ]
-  },
-  {
-    id: 'phase-002',
-    title: 'Fase 2: Análisis de Riesgos',
-    description: 'Identificar, analizar y evaluar los riesgos de seguridad de la información.',
-    order: 2,
-    isExpanded: false,
-    isActive: true,
-    sections: [
-      {
-        id: 'sec-003',
-        title: '2.1 Identificación de Activos',
-        description: 'Identifique los activos de información críticos.',
-        order: 1,
-        isExpanded: false,
-        questions: [
-          { id: 'q6', title: 'Inventario de Activos Críticos', description: 'Complete la tabla con los activos críticos.', inputType: 'TABLA', required: true, tableConfig: {
-            columns: [
-              { key: 'codigo', header: 'Código', width: '10%' },
-              { key: 'nombre', header: 'Nombre', width: '30%' },
-              { key: 'tipo', header: 'Tipo', width: '20%' },
-              { key: 'propietario', header: 'Propietario', width: '20%' },
-              { key: 'criticidad', header: 'Criticidad', width: '20%' }
-            ], minRows: 1, maxRows: 50
-          }}
-        ]
-      },
-      {
-        id: 'sec-004',
-        title: '2.2 Evaluación de Riesgos',
-        description: 'Evalúe los riesgos identificados.',
-        order: 2,
-        isExpanded: false,
-        questions: [
-          { id: 'q7', title: 'Metodología de Evaluación', description: 'Describa la metodología utilizada.', inputType: 'TEXTO', required: true },
-          { id: 'q8', title: 'Matriz de Riesgos', description: 'Complete la matriz de riesgos.', inputType: 'TABLA', required: true, tableConfig: {
-            columns: [
-              { key: 'riesgo', header: 'Riesgo', width: '30%' },
-              { key: 'probabilidad', header: 'Prob.', width: '15%' },
-              { key: 'impacto', header: 'Impacto', width: '15%' },
-              { key: 'nivel', header: 'Nivel', width: '15%' },
-              { key: 'tratamiento', header: 'Tratamiento', width: '25%' }
-            ], minRows: 1, maxRows: 100
-          }}
-        ]
-      }
-    ]
-  },
-  {
-    id: 'phase-003',
-    title: 'Fase 3: Plan de Tratamiento',
-    description: 'Desarrollar el plan de tratamiento de riesgos.',
-    order: 3,
-    isExpanded: false,
-    isActive: true,
-    sections: [
-      {
-        id: 'sec-005',
-        title: '3.1 Selección de Controles',
-        description: 'Seleccione los controles apropiados del Anexo A de ISO 27001.',
-        order: 1,
-        isExpanded: false,
-        questions: [
-          { id: 'q9', title: 'Controles Seleccionados', description: 'Liste los controles seleccionados.', inputType: 'TABLA', required: true, tableConfig: {
-            columns: [
-              { key: 'control', header: 'Control', width: '20%' },
-              { key: 'descripcion', header: 'Descripción', width: '40%' },
-              { key: 'riesgo', header: 'Riesgo', width: '20%' },
-              { key: 'responsable', header: 'Responsable', width: '20%' }
-            ], minRows: 1, maxRows: 50
-          }}
-        ]
-      }
-    ]
-  },
-  {
-    id: 'phase-004',
-    title: 'Fase 4: Implementación',
-    description: 'Implementar los controles de seguridad seleccionados.',
-    order: 4,
-    isExpanded: false,
-    isActive: true,
-    sections: []
-  },
-  {
-    id: 'phase-005',
-    title: 'Fase 5: Monitoreo y Mejora',
-    description: 'Establecer mecanismos de monitoreo y mejora continua.',
-    order: 5,
-    isExpanded: false,
-    isActive: true,
-    sections: []
-  }
-];
-
 // ============ GENERADORES DE ID ============
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+// ============ CONVERTIDORES ============
+const convertFromAPI = (apiPhases: EgsiPhaseDTO[]): PhaseLocal[] => {
+  return apiPhases.map(phase => ({
+    id: phase.idPhase,
+    title: phase.title,
+    description: phase.description || '',
+    order: phase.order,
+    isActive: phase.isActive,
+    isExpanded: false,
+    sections: phase.sections?.map(section => ({
+      id: section.idSection,
+      title: section.title,
+      description: section.description || '',
+      order: section.order,
+      isExpanded: false,
+      questions: section.questions?.map(q => ({
+        id: q.idQuestion,
+        title: q.title,
+        description: q.description || '',
+        inputType: q.inputType,
+        required: q.required,
+        placeholder: q.placeholder,
+        maxLength: q.maxLength,
+        tableConfig: typeof q.tableConfig === 'string' ? JSON.parse(q.tableConfig) : q.tableConfig,
+        order: q.order
+      })) || []
+    })) || []
+  }));
+};
+
+const convertToAPI = (phases: PhaseLocal[]): CreatePhaseRequestDTO[] => {
+  return phases.map(phase => ({
+    title: phase.title,
+    description: phase.description,
+    order: phase.order,
+    isActive: phase.isActive,
+    sections: phase.sections.map(section => ({
+      title: section.title,
+      description: section.description,
+      order: section.order,
+      questions: section.questions.map(q => ({
+        title: q.title,
+        description: q.description,
+        inputType: q.inputType,
+        required: q.required,
+        placeholder: q.placeholder,
+        maxLength: q.maxLength,
+        tableConfig: q.tableConfig ? JSON.stringify(q.tableConfig) : undefined,
+        order: q.order
+      }))
+    }))
+  }));
+};
 
 // ============ COMPONENTE PRINCIPAL ============
 export default function GestionFasesPage() {
   const dispatch = useAppDispatch();
-  const [phases, setPhases] = useState<Phase[]>([]);
+  const [phases, setPhases] = useState<PhaseLocal[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState<{phaseId: string, sectionId: string, question: Question} | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<{phaseId: string, sectionId: string, question: QuestionLocal} | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [stats, setStats] = useState({ totalPhases: 0, activePhases: 0, totalSections: 0, totalQuestions: 0 });
 
-  // Cargar datos
-  useEffect(() => {
-    setTimeout(() => {
-      setPhases(DEFAULT_PHASES);
+  // ============ CARGAR DATOS ============
+  const loadPhases = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await egsiPhasesAPI.getAll();
+      setPhases(convertFromAPI(response.egsiPhases));
+      setStats({
+        totalPhases: response.totalPhases,
+        activePhases: response.activePhases,
+        totalSections: response.totalSections,
+        totalQuestions: response.totalQuestions
+      });
+    } catch (error) {
+      console.error('Error al cargar fases:', error);
+      dispatch(showToast({ message: 'Error al cargar las fases. Usando datos locales.', type: 'error' }));
+      // Cargar datos de ejemplo si falla la API
+      setPhases(getDefaultPhases());
+    } finally {
       setLoading(false);
-    }, 500);
-  }, []);
+    }
+  }, [dispatch]);
+
+  useEffect(() => {
+    loadPhases();
+  }, [loadPhases]);
 
   // ============ FUNCIONES DE FASE ============
   const addPhase = () => {
-    const newPhase: Phase = {
+    const newPhase: PhaseLocal = {
       id: generateId(),
       title: `Fase ${phases.length + 1}: Nueva Fase`,
       description: '',
@@ -237,7 +175,7 @@ export default function GestionFasesPage() {
     dispatch(showToast({ message: 'Fase agregada', type: 'success' }));
   };
 
-  const updatePhase = (phaseId: string, updates: Partial<Phase>) => {
+  const updatePhase = (phaseId: string, updates: Partial<PhaseLocal>) => {
     setPhases(phases.map(p => p.id === phaseId ? { ...p, ...updates } : p));
   };
 
@@ -265,7 +203,7 @@ export default function GestionFasesPage() {
     const phase = phases.find(p => p.id === phaseId);
     if (!phase) return;
 
-    const newSection: Section = {
+    const newSection: SectionLocal = {
       id: generateId(),
       title: `${phase.order}.${phase.sections.length + 1} Nueva Sección`,
       description: '',
@@ -277,7 +215,7 @@ export default function GestionFasesPage() {
     updatePhase(phaseId, { sections: [...phase.sections, newSection] });
   };
 
-  const updateSection = (phaseId: string, sectionId: string, updates: Partial<Section>) => {
+  const updateSection = (phaseId: string, sectionId: string, updates: Partial<SectionLocal>) => {
     const phase = phases.find(p => p.id === phaseId);
     if (!phase) return;
 
@@ -306,14 +244,18 @@ export default function GestionFasesPage() {
 
   // ============ FUNCIONES DE PREGUNTA ============
   const addQuestion = (phaseId: string, sectionId: string) => {
-    const newQuestion: Question = {
+    const phase = phases.find(p => p.id === phaseId);
+    const section = phase?.sections.find(s => s.id === sectionId);
+    
+    const newQuestion: QuestionLocal = {
       id: generateId(),
       title: '',
       description: '',
       inputType: 'TEXTO',
       required: true,
       placeholder: '',
-      maxLength: 1000
+      maxLength: 1000,
+      order: (section?.questions.length || 0) + 1
     };
     setEditingQuestion({ phaseId, sectionId, question: newQuestion });
   };
@@ -335,7 +277,7 @@ export default function GestionFasesPage() {
     if (!section) return;
 
     const existingQuestion = section.questions.find(q => q.id === question.id);
-    let updatedQuestions: Question[];
+    let updatedQuestions: QuestionLocal[];
     
     if (existingQuestion) {
       updatedQuestions = section.questions.map(q => q.id === question.id ? question : q);
@@ -348,7 +290,7 @@ export default function GestionFasesPage() {
     dispatch(showToast({ message: 'Pregunta guardada', type: 'success' }));
   };
 
-  const editQuestion = (phaseId: string, sectionId: string, question: Question) => {
+  const editQuestion = (phaseId: string, sectionId: string, question: QuestionLocal) => {
     setEditingQuestion({ phaseId, sectionId, question: { ...question } });
   };
 
@@ -358,7 +300,9 @@ export default function GestionFasesPage() {
       if (!phase) return;
       const section = phase.sections.find(s => s.id === sectionId);
       if (!section) return;
-      updateSection(phaseId, sectionId, { questions: section.questions.filter(q => q.id !== questionId) });
+      updateSection(phaseId, sectionId, { 
+        questions: section.questions.filter(q => q.id !== questionId).map((q, idx) => ({ ...q, order: idx + 1 }))
+      });
     }
   };
 
@@ -367,7 +311,7 @@ export default function GestionFasesPage() {
     if (!editingQuestion || editingQuestion.question.inputType !== 'TABLA') return;
     
     const tableConfig = editingQuestion.question.tableConfig || { columns: [], minRows: 1, maxRows: 20 };
-    const newColumn: TableColumn = {
+    const newColumn = {
       key: `col_${tableConfig.columns.length + 1}`,
       header: `Columna ${tableConfig.columns.length + 1}`,
       width: '25%'
@@ -382,7 +326,7 @@ export default function GestionFasesPage() {
     });
   };
 
-  const updateTableColumn = (index: number, updates: Partial<TableColumn>) => {
+  const updateTableColumn = (index: number, updates: Partial<{ key: string; header: string; width?: string }>) => {
     if (!editingQuestion || !editingQuestion.question.tableConfig) return;
 
     const newColumns = [...editingQuestion.question.tableConfig.columns];
@@ -412,13 +356,28 @@ export default function GestionFasesPage() {
     });
   };
 
-  // ============ GUARDAR TODO ============
+  // ============ GUARDAR TODO EN API ============
   const handleSaveAll = async () => {
     setSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Fases guardadas:', phases);
-    dispatch(showToast({ message: 'Todas las fases guardadas correctamente', type: 'success' }));
-    setSaving(false);
+    try {
+      const phasesToSave = convertToAPI(phases);
+      const response = await egsiPhasesAPI.saveAll({ phases: phasesToSave });
+      
+      setPhases(convertFromAPI(response.egsiPhases));
+      setStats({
+        totalPhases: response.totalPhases,
+        activePhases: response.activePhases,
+        totalSections: response.totalSections,
+        totalQuestions: response.totalQuestions
+      });
+      
+      dispatch(showToast({ message: 'Todas las fases guardadas correctamente', type: 'success' }));
+    } catch (error) {
+      console.error('Error al guardar fases:', error);
+      dispatch(showToast({ message: 'Error al guardar las fases', type: 'error' }));
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ============ EXPORTAR ============
@@ -523,6 +482,13 @@ export default function GestionFasesPage() {
                 <div className="text-2xl font-bold">{getTotalQuestions()}</div>
                 <div className="text-xs text-green-200">Preguntas</div>
               </div>
+              <button
+                onClick={loadPhases}
+                className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                title="Recargar desde servidor"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -534,7 +500,8 @@ export default function GestionFasesPage() {
             <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">Plantilla de Fases Estándar</p>
             <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
               Estas fases se aplicarán automáticamente a todos los nuevos procesos de implementación EGSI. 
-              Puedes activar/desactivar fases según las necesidades de tu institución.
+              Puedes activar/desactivar fases según las necesidades de tu institución. 
+              <strong> Recuerda guardar los cambios.</strong>
             </p>
           </div>
         </div>
@@ -776,10 +743,10 @@ export default function GestionFasesPage() {
           <button
             onClick={handleSaveAll}
             disabled={saving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-colors shadow-lg shadow-green-500/30"
+            className="flex items-center gap-2 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-colors shadow-lg shadow-green-500/30 disabled:opacity-50"
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-            <span>Guardar Todo</span>
+            <span>Guardar en BD</span>
           </button>
         </div>
 
@@ -834,7 +801,7 @@ export default function GestionFasesPage() {
                       <button
                         key={type}
                         onClick={() => {
-                          const updates: Partial<Question> = { inputType: type };
+                          const updates: Partial<QuestionLocal> = { inputType: type };
                           if (type === 'TABLA' && !editingQuestion.question.tableConfig) {
                             updates.tableConfig = { columns: [], minRows: 1, maxRows: 20 };
                           }
@@ -1010,4 +977,68 @@ export default function GestionFasesPage() {
       </div>
     </RoleGuard>
   );
+}
+
+// ============ DATOS DE PRUEBA (FALLBACK) ============
+function getDefaultPhases(): PhaseLocal[] {
+  return [
+    {
+      id: 'phase-001',
+      title: 'Fase 1: Diagnóstico Inicial',
+      description: 'Evaluación del estado actual de la seguridad de la información en la institución.',
+      order: 1,
+      isExpanded: false,
+      isActive: true,
+      sections: [
+        {
+          id: 'sec-001',
+          title: '1.1 Información General de la Institución',
+          description: 'Complete la información básica de identificación institucional.',
+          order: 1,
+          isExpanded: false,
+          questions: [
+            { id: 'q1', title: 'Nombre de la Institución', description: 'Ingrese el nombre oficial completo.', inputType: 'TEXTO', required: true, placeholder: 'Ej: Universidad de las Fuerzas Armadas ESPE', order: 1 },
+            { id: 'q2', title: 'Fecha de Inicio del Diagnóstico', description: 'Seleccione la fecha de inicio.', inputType: 'DATE', required: true, order: 2 },
+            { id: 'q3', title: 'Responsable del Proceso', description: 'Nombre del funcionario responsable.', inputType: 'TEXTO', required: true, placeholder: 'Ej: Ing. Juan Pérez', order: 3 }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'phase-002',
+      title: 'Fase 2: Análisis de Riesgos',
+      description: 'Identificar, analizar y evaluar los riesgos de seguridad de la información.',
+      order: 2,
+      isExpanded: false,
+      isActive: true,
+      sections: []
+    },
+    {
+      id: 'phase-003',
+      title: 'Fase 3: Plan de Tratamiento',
+      description: 'Desarrollar el plan de tratamiento de riesgos.',
+      order: 3,
+      isExpanded: false,
+      isActive: true,
+      sections: []
+    },
+    {
+      id: 'phase-004',
+      title: 'Fase 4: Implementación',
+      description: 'Implementar los controles de seguridad seleccionados.',
+      order: 4,
+      isExpanded: false,
+      isActive: true,
+      sections: []
+    },
+    {
+      id: 'phase-005',
+      title: 'Fase 5: Monitoreo y Mejora',
+      description: 'Establecer mecanismos de monitoreo y mejora continua.',
+      order: 5,
+      isExpanded: false,
+      isActive: true,
+      sections: []
+    }
+  ];
 }
