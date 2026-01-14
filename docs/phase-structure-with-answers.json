@@ -1,0 +1,96 @@
+{
+  "phase": {
+    "idPhase": "dd65f516-f256-4aef-a5a5-0aac5f6f4de9",
+    "idProcess": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "title": "Fase 1: Diagnóstico Inicial del EGSI",
+    "description": "Esta fase tiene como objetivo realizar un diagnóstico completo del estado actual de la seguridad de la información en la institución.",
+    "status": "IN_PROGRESS",
+    "order": 1,
+    "sections": [
+      {
+        "idSection": "sec-001",
+        "title": "1.1 Información General de la Institución",
+        "description": "Complete la información básica de identificación institucional.",
+        "order": 1,
+        "questions": [
+          {
+            "idQuestion": 1,
+            "title": "Nombre de la Institución",
+            "description": "Ingrese el nombre oficial completo de la institución.",
+            "inputType": "TEXTO",
+            "required": true,
+            "placeholder": "Ej: Universidad de las Fuerzas Armadas ESPE",
+            "answer": {
+              "idAnswer": "ans-001",
+              "value": "Universidad de las Fuerzas Armadas ESPE",
+              "status": "COMPLETED",
+              "createdAt": "2026-01-10T10:30:00",
+              "updatedAt": "2026-01-10T10:30:00"
+            }
+          },
+          {
+            "idQuestion": 2,
+            "title": "Fecha de Inicio del Diagnóstico",
+            "description": "Seleccione la fecha de inicio del diagnóstico.",
+            "inputType": "DATE",
+            "required": true,
+            "answer": {
+              "idAnswer": "ans-002",
+              "value": "2026-01-15",
+              "status": "COMPLETED",
+              "createdAt": "2026-01-10T10:32:00",
+              "updatedAt": "2026-01-10T10:32:00"
+            }
+          }
+        ]
+      },
+      {
+        "idSection": "sec-002",
+        "title": "1.2 Ubicaciones Físicas",
+        "description": "Liste las ubicaciones dentro del alcance del SGSI.",
+        "order": 2,
+        "questions": [
+          {
+            "idQuestion": 5,
+            "title": "Ubicaciones Físicas",
+            "description": "Liste todas las ubicaciones físicas del SGSI.",
+            "inputType": "TABLA",
+            "required": true,
+            "tableConfig": {
+              "columns": [
+                { "key": "ubicacion", "header": "Ubicación", "width": "30%" },
+                { "key": "direccion", "header": "Dirección", "width": "40%" },
+                { "key": "responsable", "header": "Responsable", "width": "30%" }
+              ],
+              "minRows": 1,
+              "maxRows": 20
+            },
+            "answer": {
+              "idAnswer": "ans-005",
+              "value": [
+                {
+                  "ubicacion": "Campus Sangolquí",
+                  "direccion": "Av. General Rumiñahui s/n",
+                  "responsable": "Ing. Carlos Pérez"
+                },
+                {
+                  "ubicacion": "Campus Latacunga",
+                  "direccion": "Calle Quijano y Ordóñez",
+                  "responsable": "Ing. María López"
+                },
+                {
+                  "ubicacion": "Sede Quito",
+                  "direccion": "Av. 6 de Diciembre N21-152",
+                  "responsable": "Ing. Roberto García"
+                }
+              ],
+              "status": "COMPLETED",
+              "createdAt": "2026-01-10T11:00:00",
+              "updatedAt": "2026-01-12T09:15:00"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -19,7 +19,8 @@ import {
   CheckSquare,
   UserCircle,
   Edit3,
-  Calendar
+  Calendar,
+  Layers
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -37,6 +38,9 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { name: 'Dashboard', icon: Home, href: '/home', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
+  { name: 'Procesos EGSI', icon: FolderOpen, href: '/procesos', roles: ['ADMIN', 'USER'] },
+  { name: 'Gestión de Fases', icon: Layers, href: '/fases', roles: ['ADMIN'] },
+  { name: 'Cuestionarios', icon: ClipboardCheck, href: '/cuestionarios', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
   { name: 'Políticas', icon: Shield, href: '/politicas', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
   { name: 'Documentos', icon: FileText, href: '/documentos', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
   { name: 'Cronograma', icon: Calendar, href: '/cronograma', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },

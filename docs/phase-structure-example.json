@@ -1,0 +1,430 @@
+{
+  "process": {
+    "idProcess": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "Implementación EGSI - ESPE 2026",
+    "description": "Proceso de implementación del Esquema Gubernamental de Seguridad de la Información para la Universidad de las Fuerzas Armadas ESPE.",
+    "status": "IN_PROGRESS",
+    "dateBegin": "2026-01-15",
+    "dateEnd": "2026-12-31",
+    "currentPhaseOrder": 1,
+    "phases": [
+      {
+        "idPhase": "phase-001",
+        "title": "Fase 1: Diagnóstico Inicial",
+        "description": "Realizar un diagnóstico completo del estado actual de la seguridad de la información en la institución.",
+        "status": "ACTIVE",
+        "order": 1,
+        "isCompleted": false,
+        "completedPercentage": 0,
+        "sections": [
+          {
+            "idSection": "sec-001",
+            "title": "1.1 Información General de la Institución",
+            "description": "Complete la información básica de identificación institucional requerida para el proceso de implementación.",
+            "order": 1,
+            "questions": [
+              {
+                "idQuestion": 1,
+                "title": "Nombre de la Institución",
+                "description": "Ingrese el nombre oficial completo de la institución según el registro legal.",
+                "inputType": "TEXTO",
+                "required": true,
+                "placeholder": "Ej: Universidad de las Fuerzas Armadas ESPE",
+                "answer": {
+                  "idAnswer": "ans-001",
+                  "value": "",
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              },
+              {
+                "idQuestion": 2,
+                "title": "Fecha de Inicio del Diagnóstico",
+                "description": "Seleccione la fecha en que se inicia formalmente el proceso de diagnóstico.",
+                "inputType": "DATE",
+                "required": true,
+                "answer": {
+                  "idAnswer": "ans-002",
+                  "value": "",
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              },
+              {
+                "idQuestion": 3,
+                "title": "Responsable del Proceso",
+                "description": "Nombre completo del funcionario designado como responsable del proceso EGSI.",
+                "inputType": "TEXTO",
+                "required": true,
+                "placeholder": "Ej: Ing. Juan Pérez García",
+                "answer": {
+                  "idAnswer": "ans-003",
+                  "value": "",
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              }
+            ]
+          },
+          {
+            "idSection": "sec-002",
+            "title": "1.2 Alcance del Sistema de Gestión",
+            "description": "Defina el alcance y los límites del Sistema de Gestión de Seguridad de la Información.",
+            "order": 2,
+            "questions": [
+              {
+                "idQuestion": 4,
+                "title": "Descripción del Alcance",
+                "description": "Describa detalladamente el alcance del SGSI.",
+                "inputType": "TEXTO",
+                "required": true,
+                "placeholder": "Describa el alcance del sistema...",
+                "maxLength": 2000,
+                "answer": {
+                  "idAnswer": "ans-004",
+                  "value": "",
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              },
+              {
+                "idQuestion": 5,
+                "title": "Ubicaciones Físicas",
+                "description": "Liste todas las ubicaciones físicas que están dentro del alcance del SGSI.",
+                "inputType": "TABLA",
+                "required": true,
+                "tableConfig": {
+                  "columns": [
+                    { "key": "ubicacion", "header": "Ubicación", "width": "30%" },
+                    { "key": "direccion", "header": "Dirección", "width": "40%" },
+                    { "key": "responsable", "header": "Responsable", "width": "30%" }
+                  ],
+                  "minRows": 1,
+                  "maxRows": 20
+                },
+                "answer": {
+                  "idAnswer": "ans-005",
+                  "value": [],
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "idPhase": "phase-002",
+        "title": "Fase 2: Análisis de Riesgos",
+        "description": "Identificar, analizar y evaluar los riesgos de seguridad de la información.",
+        "status": "LOCKED",
+        "order": 2,
+        "isCompleted": false,
+        "completedPercentage": 0,
+        "sections": [
+          {
+            "idSection": "sec-003",
+            "title": "2.1 Identificación de Activos",
+            "description": "Identifique y catalogue los activos de información críticos.",
+            "order": 1,
+            "questions": [
+              {
+                "idQuestion": 6,
+                "title": "Inventario de Activos Críticos",
+                "description": "Complete la tabla con los activos de información más críticos.",
+                "inputType": "TABLA",
+                "required": true,
+                "tableConfig": {
+                  "columns": [
+                    { "key": "codigo", "header": "Código", "width": "10%" },
+                    { "key": "nombre", "header": "Nombre del Activo", "width": "25%" },
+                    { "key": "tipo", "header": "Tipo", "width": "15%" },
+                    { "key": "propietario", "header": "Propietario", "width": "20%" },
+                    { "key": "criticidad", "header": "Criticidad", "width": "15%" },
+                    { "key": "ubicacion", "header": "Ubicación", "width": "15%" }
+                  ],
+                  "minRows": 1,
+                  "maxRows": 50
+                },
+                "answer": {
+                  "idAnswer": "ans-006",
+                  "value": [],
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              }
+            ]
+          },
+          {
+            "idSection": "sec-004",
+            "title": "2.2 Evaluación de Riesgos",
+            "description": "Evalúe los riesgos identificados según probabilidad e impacto.",
+            "order": 2,
+            "questions": [
+              {
+                "idQuestion": 7,
+                "title": "Metodología de Evaluación",
+                "description": "Describa la metodología utilizada para la evaluación de riesgos.",
+                "inputType": "TEXTO",
+                "required": true,
+                "placeholder": "Describa la metodología...",
+                "answer": {
+                  "idAnswer": "ans-007",
+                  "value": "",
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              },
+              {
+                "idQuestion": 8,
+                "title": "Matriz de Riesgos",
+                "description": "Complete la matriz de riesgos identificados.",
+                "inputType": "TABLA",
+                "required": true,
+                "tableConfig": {
+                  "columns": [
+                    { "key": "riesgo", "header": "Riesgo", "width": "25%" },
+                    { "key": "probabilidad", "header": "Probabilidad", "width": "15%" },
+                    { "key": "impacto", "header": "Impacto", "width": "15%" },
+                    { "key": "nivelRiesgo", "header": "Nivel de Riesgo", "width": "15%" },
+                    { "key": "tratamiento", "header": "Tratamiento", "width": "30%" }
+                  ],
+                  "minRows": 1,
+                  "maxRows": 100
+                },
+                "answer": {
+                  "idAnswer": "ans-008",
+                  "value": [],
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "idPhase": "phase-003",
+        "title": "Fase 3: Plan de Tratamiento",
+        "description": "Desarrollar el plan de tratamiento de riesgos y controles a implementar.",
+        "status": "LOCKED",
+        "order": 3,
+        "isCompleted": false,
+        "completedPercentage": 0,
+        "sections": [
+          {
+            "idSection": "sec-005",
+            "title": "3.1 Selección de Controles",
+            "description": "Seleccione los controles apropiados para mitigar los riesgos.",
+            "order": 1,
+            "questions": [
+              {
+                "idQuestion": 9,
+                "title": "Controles Seleccionados",
+                "description": "Liste los controles seleccionados del Anexo A de ISO 27001.",
+                "inputType": "TABLA",
+                "required": true,
+                "tableConfig": {
+                  "columns": [
+                    { "key": "control", "header": "Control", "width": "15%" },
+                    { "key": "descripcion", "header": "Descripción", "width": "35%" },
+                    { "key": "riesgoAsociado", "header": "Riesgo Asociado", "width": "25%" },
+                    { "key": "responsable", "header": "Responsable", "width": "25%" }
+                  ],
+                  "minRows": 1,
+                  "maxRows": 50
+                },
+                "answer": {
+                  "idAnswer": "ans-009",
+                  "value": [],
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              }
+            ]
+          },
+          {
+            "idSection": "sec-006",
+            "title": "3.2 Cronograma de Implementación",
+            "description": "Defina el cronograma para la implementación de controles.",
+            "order": 2,
+            "questions": [
+              {
+                "idQuestion": 10,
+                "title": "Fecha de Inicio del Plan",
+                "description": "Fecha de inicio del plan de tratamiento.",
+                "inputType": "DATE",
+                "required": true,
+                "answer": {
+                  "idAnswer": "ans-010",
+                  "value": "",
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              },
+              {
+                "idQuestion": 11,
+                "title": "Fecha de Finalización Estimada",
+                "description": "Fecha estimada de finalización del plan.",
+                "inputType": "DATE",
+                "required": true,
+                "answer": {
+                  "idAnswer": "ans-011",
+                  "value": "",
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              },
+              {
+                "idQuestion": 12,
+                "title": "Hitos del Plan de Tratamiento",
+                "description": "Defina los hitos principales del plan.",
+                "inputType": "TABLA",
+                "required": true,
+                "tableConfig": {
+                  "columns": [
+                    { "key": "hito", "header": "Hito", "width": "35%" },
+                    { "key": "fechaComprometida", "header": "Fecha", "width": "20%" },
+                    { "key": "porcentaje", "header": "% Avance", "width": "15%" },
+                    { "key": "responsable", "header": "Responsable", "width": "30%" }
+                  ],
+                  "minRows": 3,
+                  "maxRows": 30
+                },
+                "answer": {
+                  "idAnswer": "ans-012",
+                  "value": [],
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "idPhase": "phase-004",
+        "title": "Fase 4: Implementación de Controles",
+        "description": "Implementar los controles de seguridad definidos en el plan de tratamiento.",
+        "status": "LOCKED",
+        "order": 4,
+        "isCompleted": false,
+        "completedPercentage": 0,
+        "sections": [
+          {
+            "idSection": "sec-007",
+            "title": "4.1 Políticas de Seguridad",
+            "description": "Documente las políticas de seguridad implementadas.",
+            "order": 1,
+            "questions": [
+              {
+                "idQuestion": 13,
+                "title": "Política General de Seguridad",
+                "description": "Describa la política general de seguridad de la información.",
+                "inputType": "TEXTO",
+                "required": true,
+                "placeholder": "Describa la política...",
+                "maxLength": 5000,
+                "answer": {
+                  "idAnswer": "ans-013",
+                  "value": "",
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              },
+              {
+                "idQuestion": 14,
+                "title": "Fecha de Aprobación de Políticas",
+                "description": "Fecha en que fueron aprobadas las políticas.",
+                "inputType": "DATE",
+                "required": true,
+                "answer": {
+                  "idAnswer": "ans-014",
+                  "value": "",
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "idPhase": "phase-005",
+        "title": "Fase 5: Monitoreo y Mejora Continua",
+        "description": "Establecer mecanismos de monitoreo y mejora continua del SGSI.",
+        "status": "LOCKED",
+        "order": 5,
+        "isCompleted": false,
+        "completedPercentage": 0,
+        "sections": [
+          {
+            "idSection": "sec-008",
+            "title": "5.1 Indicadores de Desempeño",
+            "description": "Defina los indicadores para medir el desempeño del SGSI.",
+            "order": 1,
+            "questions": [
+              {
+                "idQuestion": 15,
+                "title": "KPIs de Seguridad",
+                "description": "Liste los indicadores clave de desempeño.",
+                "inputType": "TABLA",
+                "required": true,
+                "tableConfig": {
+                  "columns": [
+                    { "key": "indicador", "header": "Indicador", "width": "25%" },
+                    { "key": "descripcion", "header": "Descripción", "width": "30%" },
+                    { "key": "meta", "header": "Meta", "width": "15%" },
+                    { "key": "frecuencia", "header": "Frecuencia", "width": "15%" },
+                    { "key": "responsable", "header": "Responsable", "width": "15%" }
+                  ],
+                  "minRows": 3,
+                  "maxRows": 20
+                },
+                "answer": {
+                  "idAnswer": "ans-015",
+                  "value": [],
+                  "status": "PENDING",
+                  "createdAt": null,
+                  "updatedAt": null
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "_metadata": {
+    "version": "2.0",
+    "generatedAt": "2026-01-13",
+    "description": "Estructura JSON para proceso EGSI con múltiples fases navegables",
+    "phaseStatuses": {
+      "LOCKED": "Fase bloqueada - requiere completar fase anterior",
+      "ACTIVE": "Fase activa - disponible para completar",
+      "COMPLETED": "Fase completada"
+    },
+    "notes": [
+      "Un proceso tiene N fases",
+      "Cada fase tiene N secciones",
+      "Cada sección tiene N preguntas",
+      "Las fases se desbloquean secuencialmente",
+      "currentPhaseOrder indica la fase activa",
+      "Los tipos de input son: TEXTO, DATE, TABLA"
+    ]
+  }
+}
