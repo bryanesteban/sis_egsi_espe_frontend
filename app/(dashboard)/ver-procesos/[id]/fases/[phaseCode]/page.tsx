@@ -38,6 +38,7 @@ interface TableColumnConfig {
   key: string;
   header: string;
   width?: string;
+  type?: 'text' | 'date'; // Tipo de input: texto o fecha
 }
 
 // Configuración de tabla
@@ -148,13 +149,22 @@ function TableEditor({ columns, value, onChange, minRows = 1, maxRows = 50 }: Ta
               </td>
               {columns.map((col, colIndex) => (
                 <td key={col.key || colIndex} className="px-2 py-2">
-                  <input
-                    type="text"
-                    value={row[colIndex] || ''}
-                    onChange={(e) => updateCell(rowIndex, colIndex, e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    placeholder={`Ingrese ${col.header.toLowerCase()}...`}
-                  />
+                  {col.type === 'date' ? (
+                    <input
+                      type="date"
+                      value={row[colIndex] || ''}
+                      onChange={(e) => updateCell(rowIndex, colIndex, e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={row[colIndex] || ''}
+                      onChange={(e) => updateCell(rowIndex, colIndex, e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                      placeholder={`Ingrese ${col.header.toLowerCase()}...`}
+                    />
+                  )}
                 </td>
               ))}
               <td className="px-2 py-2">

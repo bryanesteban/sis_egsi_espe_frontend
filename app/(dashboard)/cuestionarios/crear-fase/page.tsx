@@ -30,6 +30,7 @@ interface TableColumn {
   key: string;
   header: string;
   width?: string;
+  type?: 'text' | 'date'; // Tipo de input: texto o fecha
 }
 
 interface TableConfig {
@@ -228,7 +229,8 @@ export default function CrearFasePage() {
     const newColumn: TableColumn = {
       key: `col_${tableConfig.columns.length + 1}`,
       header: `Columna ${tableConfig.columns.length + 1}`,
-      width: '25%'
+      width: '25%',
+      type: 'text' // Por defecto tipo texto
     };
 
     setEditingQuestion({
@@ -817,36 +819,61 @@ export default function CrearFasePage() {
                         No hay columnas definidas. Agrega al menos una columna.
                       </p>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {editingQuestion.question.tableConfig?.columns.map((col, idx) => (
-                          <div key={idx} className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={col.key}
-                              onChange={(e) => updateTableColumn(idx, { key: e.target.value.toLowerCase().replace(/\s/g, '_') })}
-                              placeholder="key"
-                              className="w-24 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white"
-                            />
-                            <input
-                              type="text"
-                              value={col.header}
-                              onChange={(e) => updateTableColumn(idx, { header: e.target.value })}
-                              placeholder="Título columna"
-                              className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white"
-                            />
-                            <input
-                              type="text"
-                              value={col.width || ''}
-                              onChange={(e) => updateTableColumn(idx, { width: e.target.value })}
-                              placeholder="Ancho %"
-                              className="w-20 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white"
-                            />
-                            <button
-                              onClick={() => deleteTableColumn(idx)}
-                              className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          <div key={idx} className="p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Columna {idx + 1}</span>
+                              <button
+                                onClick={() => deleteTableColumn(idx)}
+                                className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Key</label>
+                                <input
+                                  type="text"
+                                  value={col.key}
+                                  onChange={(e) => updateTableColumn(idx, { key: e.target.value.toLowerCase().replace(/\s/g, '_') })}
+                                  placeholder="ej: nombre"
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Título</label>
+                                <input
+                                  type="text"
+                                  value={col.header}
+                                  onChange={(e) => updateTableColumn(idx, { header: e.target.value })}
+                                  placeholder="ej: Nombre"
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Tipo de Input</label>
+                                <select
+                                  value={col.type || 'text'}
+                                  onChange={(e) => updateTableColumn(idx, { type: e.target.value as 'text' | 'date' })}
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                                >
+                                  <option value="text">📝 Texto</option>
+                                  <option value="date">📅 Fecha</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Ancho</label>
+                                <input
+                                  type="text"
+                                  value={col.width || ''}
+                                  onChange={(e) => updateTableColumn(idx, { width: e.target.value })}
+                                  placeholder="ej: 25%"
+                                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                                />
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>

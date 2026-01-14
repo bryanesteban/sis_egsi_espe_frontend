@@ -309,6 +309,7 @@ export interface TableColumnConfig {
   key: string;
   header: string;
   width?: string;
+  type?: 'text' | 'date'; // Tipo de input: texto o fecha
 }
 
 export interface TableConfig {
