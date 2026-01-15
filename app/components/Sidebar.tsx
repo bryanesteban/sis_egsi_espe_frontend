@@ -41,22 +41,8 @@ const menuItems: MenuItem[] = [
   { name: 'Ver Procesos', icon: Eye, href: '/ver-procesos', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
   { name: 'Gestión de Procesos', icon: FolderOpen, href: '/procesos', roles: ['ADMIN'] },
   { name: 'Gestión de Fases', icon: Layers, href: '/fases', roles: ['ADMIN'] },
-  { name: 'Cuestionarios', icon: ClipboardCheck, href: '/cuestionarios', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
-  { name: 'Políticas', icon: Shield, href: '/politicas', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
-  { name: 'Documentos', icon: FileText, href: '/documentos', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
-  { name: 'Cronograma', icon: Calendar, href: '/cronograma', roles: ['ADMIN', 'USER', 'VIEWER', 'APPROVER'] },
-  { name: 'Editor', icon: Edit3, href: '/editor', roles: ['ADMIN', 'USER', 'EDITOR'] },
-  { name: 'Evaluaciones', icon: ClipboardCheck, href: '/evaluaciones', roles: ['ADMIN', 'USER', 'APPROVER'] },
-  { name: 'Riesgos', icon: AlertCircle, href: '/riesgos', badge: 3, roles: ['ADMIN', 'USER', 'APPROVER'] },
-  { name: 'Proyectos', icon: FolderOpen, href: '/proyectos', roles: ['ADMIN', 'USER'] },
-  { name: 'Reportes', icon: BarChart3, href: '/reportes', roles: ['ADMIN', 'VIEWER', 'APPROVER'] },
-  // Pantallas específicas por rol
-  { name: 'Panel de Visualización', icon: Eye, href: '/visualizador', roles: ['ADMIN', 'VIEWER'] },
   { name: 'Panel de Aprobaciones', icon: CheckSquare, href: '/aprobador', roles: ['ADMIN', 'APPROVER'] },
-  { name: 'Mi Espacio', icon: UserCircle, href: '/mi-espacio', roles: ['ADMIN', 'USER'] },
-  // Solo admin
   { name: 'Usuarios', icon: Users, href: '/usuarios', roles: ['ADMIN'] },
-  { name: 'Configuración', icon: Settings, href: '/configuracion', roles: ['ADMIN'] },
 ];
 
 export default function Sidebar() {

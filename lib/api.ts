@@ -644,3 +644,40 @@ export const phaseApprovalAPI = {
     return response.data;
   },
 };
+
+// ============================================================
+// API DE REPORTES PDF DE FASES
+// ============================================================
+
+export const phaseReportAPI = {
+  // Generar y descargar PDF de fase aprobada
+  downloadPdf: async (processId: string, phaseId: string): Promise<Blob> => {
+    const response = await apiClient.get(`/api/v3/phase-reports/${processId}/${phaseId}/pdf`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  // Obtener URL para previsualizar PDF
+  getPreviewUrl: (processId: string, phaseId: string): string => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+    return `${API_BASE_URL}/api/v3/phase-reports/${processId}/${phaseId}/preview?token=${token}`;
+  },
+
+  // Abrir PDF en nueva pestaña
+  openPdfInNewTab: async (processId: string, phaseId: string): Promise<void> => {
+    try {
+      const response = await apiClient.get(`/api/v3/phase-reports/${processId}/${phaseId}/pdf`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // Limpiar URL después de un tiempo
+      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+    } catch (error) {
+      console.error('Error al abrir PDF:', error);
+      throw error;
+    }
+  },
+};

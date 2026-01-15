@@ -21,13 +21,16 @@ import {
   XCircle,
   ThumbsUp,
   ThumbsDown,
-  Lock
+  Lock,
+  Download
 } from 'lucide-react';
 import { processAPI, ProcessEgsiDTO, egsiPhasesAPI, egsiAnswersAPI, phaseApprovalAPI, PhaseApprovalDTO } from '@/lib/api';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAppDispatch } from '@/app/store/hooks';
 import { showToast } from '@/app/store/slices/toastSlice';
 import RoleGuard from '@/app/components/RoleGuard';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Importar BlockEditor de forma lazy para evitar problemas de SSR
 const BlockEditor = lazy(() => import('@/app/components/BlockEditor'));
@@ -256,6 +259,9 @@ export default function ResponderFasePage() {
   const [processingReview, setProcessingReview] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  
+  // Estado para generación de PDF
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   // Determinar estados de aprobación
   const isPendingApproval = approvalStatus?.status === 'PENDING';
@@ -426,6 +432,301 @@ export default function ResponderFasePage() {
       }));
     } finally {
       setProcessingReview(false);
+    }
+  };
+
+  // Función para extraer texto limpio de contenido BlockNote JSON
+  const extractTextFromBlockNote = (jsonString: string): string => {
+    try {
+      const blocks = JSON.parse(jsonString);
+      if (!Array.isArray(blocks)) return jsonString;
+      
+      const extractText = (content: any[]): string => {
+        if (!Array.isArray(content)) return '';
+        return content.map(item => {
+          if (item.type === 'text') {
+            return item.text || '';
+          }
+          if (item.content) {
+            return extractText(item.content);
+          }
+          return '';
+        }).join('');
+      };
+      
+      const textParts: string[] = [];
+      blocks.forEach(block => {
+        if (block.content) {
+          const text = extractText(block.content);
+          if (text.trim()) {
+            // Agregar bullet o número si es lista
+            if (block.type === 'bulletListItem') {
+              textParts.push(`• ${text}`);
+            } else if (block.type === 'numberedListItem') {
+              textParts.push(`- ${text}`);
+            } else {
+              textParts.push(text);
+            }
+          }
+        }
+      });
+      
+      return textParts.join('\n') || 'Sin contenido';
+    } catch {
+      // Si no es JSON válido, limpiar HTML y devolver
+      return jsonString.replace(/<[^>]*>/g, '').trim() || jsonString;
+    }
+  };
+
+  // Generar y descargar PDF de fase aprobada
+  const handleDownloadPdf = () => {
+    if (!phase || !process || !approvalStatus) return;
+    
+    try {
+      setGeneratingPdf(true);
+      
+      const doc = new jsPDF('portrait', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      // === HEADER ===
+      doc.setFontSize(18);
+      doc.setTextColor(124, 58, 237); // Purple
+      doc.text('INFORME DE FASE APROBADA', pageWidth / 2, 20, { align: 'center' });
+      
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Sistema de Gestión EGSI - ESPE', pageWidth / 2, 28, { align: 'center' });
+      
+      // === INFORMACIÓN DEL PROCESO ===
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      let yPos = 40;
+      
+      doc.setFont('helvetica', 'bold');
+      doc.text('Proceso:', 14, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(process.name || 'N/A', 50, yPos);
+      
+      yPos += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Descripción:', 14, yPos);
+      doc.setFont('helvetica', 'normal');
+      const descLines = doc.splitTextToSize(process.description || 'N/A', pageWidth - 65);
+      doc.text(descLines, 50, yPos);
+      yPos += (descLines.length * 5) + 5;
+      
+      doc.setFont('helvetica', 'bold');
+      doc.text('Fase:', 14, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Fase ${phase.order}: ${phase.title}`, 50, yPos);
+      
+      // Línea separadora
+      yPos += 10;
+      doc.setDrawColor(124, 58, 237);
+      doc.setLineWidth(0.5);
+      doc.line(14, yPos, pageWidth - 14, yPos);
+      
+      // === CONTENIDO DE LA FASE ===
+      yPos += 10;
+      doc.setFontSize(12);
+      doc.setTextColor(124, 58, 237);
+      doc.setFont('helvetica', 'bold');
+      doc.text('CONTENIDO DE LA FASE', 14, yPos);
+      
+      if (phase.description) {
+        yPos += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(75, 85, 99);
+        doc.setFont('helvetica', 'normal');
+        const phaseDescLines = doc.splitTextToSize(phase.description, pageWidth - 28);
+        doc.text(phaseDescLines, 14, yPos);
+        yPos += (phaseDescLines.length * 5);
+      }
+      
+      // Iterar por secciones
+      const sortedSections = [...phase.sections].sort((a, b) => a.order - b.order);
+      
+      sortedSections.forEach((section, sectionIdx) => {
+        // Verificar si necesitamos nueva página
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+        
+        yPos += 10;
+        doc.setFontSize(11);
+        doc.setTextColor(79, 70, 229); // Indigo
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${sectionIdx + 1}. ${section.title}`, 14, yPos);
+        
+        if (section.description) {
+          yPos += 6;
+          doc.setFontSize(9);
+          doc.setTextColor(100, 100, 100);
+          doc.setFont('helvetica', 'normal');
+          const secDescLines = doc.splitTextToSize(section.description, pageWidth - 28);
+          doc.text(secDescLines, 14, yPos);
+          yPos += (secDescLines.length * 4);
+        }
+        
+        // Preguntas y respuestas
+        const sortedQuestions = [...section.questions].sort((a, b) => a.order - b.order);
+        
+        sortedQuestions.forEach((question) => {
+          // Verificar si necesitamos nueva página
+          if (yPos > 250) {
+            doc.addPage();
+            yPos = 20;
+          }
+          
+          yPos += 8;
+          
+          // Pregunta
+          doc.setFillColor(243, 244, 246);
+          const questionText = question.title + (question.required ? ' *' : '');
+          const questionLines = doc.splitTextToSize(questionText, pageWidth - 32);
+          const questionHeight = questionLines.length * 5 + 6;
+          doc.roundedRect(14, yPos - 4, pageWidth - 28, questionHeight, 1, 1, 'F');
+          
+          doc.setFontSize(10);
+          doc.setTextColor(75, 85, 99);
+          doc.setFont('helvetica', 'bold');
+          doc.text(questionLines, 16, yPos);
+          
+          yPos += questionHeight;
+          
+          // Respuesta
+          const answer = answers[question.idQuestion];
+          let answerText = 'Sin respuesta';
+          
+          if (answer) {
+            if (question.inputType === 'TABLA' && Array.isArray(answer)) {
+              // Para tablas, usar autoTable
+              if (answer.length > 0 && question.tableConfig?.columns) {
+                const tableHead = [question.tableConfig.columns.map(c => c.header)];
+                const tableBody = answer as string[][];
+                
+                // Verificar nueva página si es necesario
+                if (yPos > 200) {
+                  doc.addPage();
+                  yPos = 20;
+                }
+                
+                doc.setFontSize(9);
+                doc.setTextColor(0, 0, 0);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Datos de la tabla (${tableBody.length} registros):`, 16, yPos);
+                yPos += 4;
+                
+                autoTable(doc, {
+                  startY: yPos,
+                  head: tableHead,
+                  body: tableBody,
+                  margin: { left: 16, right: 16 },
+                  headStyles: {
+                    fillColor: [79, 70, 229],
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold',
+                    fontSize: 8,
+                  },
+                  bodyStyles: {
+                    fontSize: 8,
+                  },
+                  alternateRowStyles: {
+                    fillColor: [249, 250, 251],
+                  },
+                  tableWidth: 'auto',
+                });
+                
+                // Obtener la posición Y después de la tabla
+                yPos = (doc as any).lastAutoTable.finalY + 5;
+              } else {
+                answerText = 'Tabla vacía - Sin registros';
+                doc.setFontSize(9);
+                doc.setTextColor(100, 100, 100);
+                doc.setFont('helvetica', 'italic');
+                doc.text(answerText, 16, yPos);
+                yPos += 5;
+              }
+            } else {
+              // Respuesta de texto - puede ser BlockNote JSON o texto plano
+              let cleanText = typeof answer === 'string' ? answer : String(answer);
+              
+              // Intentar extraer texto si es BlockNote JSON
+              if (cleanText.startsWith('[') && cleanText.includes('"type"')) {
+                cleanText = extractTextFromBlockNote(cleanText);
+              } else {
+                // Limpiar HTML si no es JSON
+                cleanText = cleanText.replace(/<[^>]*>/g, '').trim();
+              }
+              
+              answerText = cleanText || 'Sin respuesta';
+              
+              doc.setFontSize(9);
+              doc.setTextColor(0, 0, 0);
+              doc.setFont('helvetica', 'normal');
+              
+              // Manejar respuestas multilínea
+              const answerLines = doc.splitTextToSize(answerText, pageWidth - 32);
+              doc.text(answerLines, 16, yPos);
+              yPos += (answerLines.length * 4) + 3;
+            }
+          } else {
+            doc.setFontSize(9);
+            doc.setTextColor(100, 100, 100);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Sin respuesta', 16, yPos);
+            yPos += 5;
+          }
+        });
+      });
+      
+      // === FOOTER ===
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.setFont('helvetica', 'normal');
+        
+        const footerY = doc.internal.pageSize.getHeight() - 10;
+        doc.text(
+          `Página ${i} de ${pageCount} - SIEGSI - Sistema de Gestión de Seguridad de la Información`,
+          pageWidth / 2,
+          footerY,
+          { align: 'center' }
+        );
+        
+        doc.text(
+          `Generado: ${new Date().toLocaleDateString('es-EC', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}`,
+          pageWidth / 2,
+          footerY + 4,
+          { align: 'center' }
+        );
+      }
+      
+      // Descargar el PDF
+      const fileName = `Fase_${phase.order}_${phase.title.replace(/\s+/g, '_')}_Aprobada.pdf`;
+      doc.save(fileName);
+      
+      dispatch(showToast({ 
+        message: 'Reporte PDF generado correctamente', 
+        type: 'success' 
+      }));
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      dispatch(showToast({ 
+        message: 'Error al generar el reporte PDF', 
+        type: 'error' 
+      }));
+    } finally {
+      setGeneratingPdf(false);
     }
   };
 
@@ -787,10 +1088,30 @@ export default function ResponderFasePage() {
                 
                 {/* Estado y botones de aprobación */}
                 {isApproved ? (
-                  /* Fase aprobada - mostrar badge verde */
-                  <div className="flex items-center gap-2 px-4 py-2.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-xl">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span className="text-sm font-medium">Fase Aprobada</span>
+                  /* Fase aprobada - mostrar badge verde y botón de PDF */
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 px-4 py-2.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-xl">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span className="text-sm font-medium">Fase Aprobada</span>
+                    </div>
+                    <button
+                      onClick={handleDownloadPdf}
+                      disabled={generatingPdf}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl transition-colors shadow-lg shadow-blue-600/25"
+                      title="Generar informe PDF"
+                    >
+                      {generatingPdf ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Generando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-5 h-5" />
+                          <span>Descargar PDF</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 ) : isPendingApproval ? (
                   <div className="flex items-center gap-2 px-4 py-2.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-xl">
