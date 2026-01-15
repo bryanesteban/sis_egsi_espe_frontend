@@ -36,6 +36,10 @@ export default function VerProcesosPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  
+  // Obtener rol del usuario
+  const userRole = user?.rolename?.toUpperCase() || 'USER';
+  const isUser = userRole === 'USER';
 
   // Cargar procesos desde el backend
   const fetchProcesses = async () => {
@@ -43,7 +47,14 @@ export default function VerProcesosPage() {
       setLoading(true);
       setError(null);
       const response = await processAPI.getAll();
-      setProcesses(response.process || []);
+      let processList = response.process || [];
+      
+      // Si es usuario tipo USER, solo mostrar procesos ACTIVOS
+      if (isUser) {
+        processList = processList.filter((p: ProcessEgsiDTO) => p.status === 'ACTIVE');
+      }
+      
+      setProcesses(processList);
     } catch (err: any) {
       console.error('Error fetching processes:', err);
       setError(err.response?.data?.error || 'Error al cargar los procesos');
@@ -110,7 +121,7 @@ export default function VerProcesosPage() {
         {/* Filtros */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Search */}
-          <div className="md:col-span-2 relative">
+          <div className={`${isUser ? 'md:col-span-3' : 'md:col-span-2'} relative`}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
@@ -121,19 +132,21 @@ export default function VerProcesosPage() {
             />
           </div>
 
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          >
-            <option value="ALL">Todos los estados</option>
-            {PROCESS_STATUS.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
-              </option>
-            ))}
-          </select>
+          {/* Status Filter - Solo visible para roles que no sean USER */}
+          {!isUser && (
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              <option value="ALL">Todos los estados</option>
+              {PROCESS_STATUS.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Stats */}
