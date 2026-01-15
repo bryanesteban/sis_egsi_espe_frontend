@@ -15,10 +15,16 @@ import {
   Type,
   HelpCircle,
   Plus,
-  Trash2
+  Trash2,
+  Send,
+  HourglassIcon,
+  XCircle,
+  ThumbsUp,
+  ThumbsDown,
+  Lock
 } from 'lucide-react';
-import { processAPI, ProcessEgsiDTO, egsiPhasesAPI, egsiAnswersAPI } from '@/lib/api';
-import { useParams, useRouter } from 'next/navigation';
+import { processAPI, ProcessEgsiDTO, egsiPhasesAPI, egsiAnswersAPI, phaseApprovalAPI, PhaseApprovalDTO } from '@/lib/api';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAppDispatch } from '@/app/store/hooks';
 import { showToast } from '@/app/store/slices/toastSlice';
 import RoleGuard from '@/app/components/RoleGuard';
@@ -91,13 +97,15 @@ interface TableEditorProps {
   onChange: (data: string[][]) => void;
   minRows?: number;
   maxRows?: number;
+  readOnly?: boolean;
 }
 
-function TableEditor({ columns, value, onChange, minRows = 1, maxRows = 50 }: TableEditorProps) {
+function TableEditor({ columns, value, onChange, minRows = 1, maxRows = 50, readOnly = false }: TableEditorProps) {
   // Inicializar con filas mínimas si está vacío
   const rows = value.length > 0 ? value : Array(minRows).fill(null).map(() => columns.map(() => ''));
 
   const addRow = () => {
+    if (readOnly) return;
     if (rows.length < maxRows) {
       const newRow = columns.map(() => '');
       onChange([...rows, newRow]);
@@ -105,6 +113,7 @@ function TableEditor({ columns, value, onChange, minRows = 1, maxRows = 50 }: Ta
   };
 
   const removeRow = (rowIndex: number) => {
+    if (readOnly) return;
     if (rows.length > minRows) {
       const newRows = rows.filter((_, index) => index !== rowIndex);
       onChange(newRows);
@@ -112,6 +121,7 @@ function TableEditor({ columns, value, onChange, minRows = 1, maxRows = 50 }: Ta
   };
 
   const updateCell = (rowIndex: number, colIndex: number, newValue: string) => {
+    if (readOnly) return;
     const newRows = rows.map((row, rIdx) => {
       if (rIdx === rowIndex) {
         return row.map((cell, cIdx) => (cIdx === colIndex ? newValue : cell));
@@ -138,7 +148,9 @@ function TableEditor({ columns, value, onChange, minRows = 1, maxRows = 50 }: Ta
                 {col.header}
               </th>
             ))}
-            <th className="w-12 px-2 py-3 border-b border-gray-200 dark:border-gray-600"></th>
+            {!readOnly && (
+              <th className="w-12 px-2 py-3 border-b border-gray-200 dark:border-gray-600"></th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -154,50 +166,56 @@ function TableEditor({ columns, value, onChange, minRows = 1, maxRows = 50 }: Ta
                       type="date"
                       value={row[colIndex] || ''}
                       onChange={(e) => updateCell(rowIndex, colIndex, e.target.value)}
-                      className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                      disabled={readOnly}
+                      className={`w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all ${readOnly ? 'cursor-not-allowed opacity-80' : ''}`}
                     />
                   ) : (
                     <input
                       type="text"
                       value={row[colIndex] || ''}
                       onChange={(e) => updateCell(rowIndex, colIndex, e.target.value)}
-                      className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                      placeholder={`Ingrese ${col.header.toLowerCase()}...`}
+                      disabled={readOnly}
+                      className={`w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all ${readOnly ? 'cursor-not-allowed opacity-80' : ''}`}
+                      placeholder={readOnly ? '' : `Ingrese ${col.header.toLowerCase()}...`}
                     />
                   )}
                 </td>
               ))}
-              <td className="px-2 py-2">
-                <button
-                  type="button"
-                  onClick={() => removeRow(rowIndex)}
-                  disabled={rows.length <= minRows}
-                  className="p-2 text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  title="Eliminar fila"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </td>
+              {!readOnly && (
+                <td className="px-2 py-2">
+                  <button
+                    type="button"
+                    onClick={() => removeRow(rowIndex)}
+                    disabled={rows.length <= minRows}
+                    className="p-2 text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    title="Eliminar fila"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
       </table>
       
-      {/* Botón para agregar fila */}
-      <div className="p-3 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
-        <button
-          type="button"
-          onClick={addRow}
-          disabled={rows.length >= maxRows}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Agregar fila</span>
-        </button>
-        <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-          {rows.length} de {maxRows} filas máximas
-        </p>
-      </div>
+      {/* Botón para agregar fila - solo si no es readOnly */}
+      {!readOnly && (
+        <div className="p-3 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+          <button
+            type="button"
+            onClick={addRow}
+            disabled={rows.length >= maxRows}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Agregar fila</span>
+          </button>
+          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+            {rows.length} de {maxRows} filas máximas
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -206,9 +224,14 @@ export default function ResponderFasePage() {
   const params = useParams();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const searchParams = useSearchParams();
   
   const processId = params.id as string;
   const phaseId = params.phaseCode as string; // Ahora es el ID de la fase
+  
+  // Detectar modo revisión (viene desde aprobador)
+  const isReviewMode = searchParams.get('mode') === 'review';
+  const approvalIdFromUrl = searchParams.get('approvalId');
   
   const [process, setProcess] = useState<ProcessEgsiDTO | null>(null);
   const [phase, setPhase] = useState<PhaseData | null>(null);
@@ -222,6 +245,17 @@ export default function ResponderFasePage() {
   
   // Sección actual (para navegación)
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  
+  // Estados para aprobación
+  const [approvalStatus, setApprovalStatus] = useState<PhaseApprovalDTO | null>(null);
+  const [requestingApproval, setRequestingApproval] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvalComments, setApprovalComments] = useState('');
+  
+  // Estados para modo revisión
+  const [processingReview, setProcessingReview] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // Cargar respuestas guardadas
   const loadSavedAnswers = async () => {
@@ -251,6 +285,134 @@ export default function ResponderFasePage() {
       console.log('No hay respuestas guardadas o error al cargar:', err);
     } finally {
       setLoadingAnswers(false);
+    }
+  };
+
+  // Cargar estado de aprobación
+  const loadApprovalStatus = async () => {
+    try {
+      const response = await phaseApprovalAPI.checkPending(processId, phaseId);
+      setApprovalStatus(response.lastApproval || null);
+    } catch (err) {
+      console.log('No hay estado de aprobación:', err);
+      setApprovalStatus(null);
+    }
+  };
+
+  // Solicitar aprobación
+  const handleRequestApproval = async () => {
+    if (!phase || !process) return;
+    
+    try {
+      setRequestingApproval(true);
+      
+      // Obtener usuario actual del localStorage
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      const requestedBy = user?.username || 'usuario@espe.edu.ec';
+      
+      await phaseApprovalAPI.create({
+        idProcess: processId,
+        idPhase: phaseId,
+        phaseOrder: phase.order,
+        phaseTitle: phase.title,
+        requestedBy,
+        comments: approvalComments,
+      });
+      
+      dispatch(showToast({ 
+        message: 'Solicitud de aprobación enviada correctamente', 
+        type: 'success' 
+      }));
+      
+      setShowApprovalModal(false);
+      setApprovalComments('');
+      await loadApprovalStatus();
+    } catch (err: any) {
+      console.error('Error requesting approval:', err);
+      dispatch(showToast({ 
+        message: err.response?.data?.error || 'Error al enviar solicitud', 
+        type: 'error' 
+      }));
+    } finally {
+      setRequestingApproval(false);
+    }
+  };
+
+  // Aprobar fase (modo revisión)
+  const handleApprovePhase = async () => {
+    if (!approvalIdFromUrl) return;
+    
+    try {
+      setProcessingReview(true);
+      
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      const reviewedBy = user?.username || 'aprobador@espe.edu.ec';
+      
+      await phaseApprovalAPI.review({
+        idApproval: approvalIdFromUrl,
+        action: 'APPROVED',
+        reviewedBy,
+      });
+      
+      dispatch(showToast({ 
+        message: `Fase "${phase?.title}" aprobada correctamente. El proceso avanzará a la siguiente fase.`, 
+        type: 'success' 
+      }));
+      
+      router.push('/aprobador');
+    } catch (err: any) {
+      console.error('Error approving:', err);
+      dispatch(showToast({ 
+        message: err.response?.data?.error || 'Error al aprobar la fase', 
+        type: 'error' 
+      }));
+    } finally {
+      setProcessingReview(false);
+    }
+  };
+
+  // Rechazar fase (modo revisión)
+  const handleRejectPhase = async () => {
+    if (!approvalIdFromUrl || !rejectionReason.trim()) {
+      dispatch(showToast({ 
+        message: 'Debe proporcionar un motivo de rechazo', 
+        type: 'error' 
+      }));
+      return;
+    }
+    
+    try {
+      setProcessingReview(true);
+      
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      const reviewedBy = user?.username || 'aprobador@espe.edu.ec';
+      
+      await phaseApprovalAPI.review({
+        idApproval: approvalIdFromUrl,
+        action: 'REJECTED',
+        reviewedBy,
+        rejectionReason,
+      });
+      
+      dispatch(showToast({ 
+        message: `Fase "${phase?.title}" rechazada. El solicitante deberá realizar correcciones.`, 
+        type: 'success' 
+      }));
+      
+      setShowRejectModal(false);
+      setRejectionReason('');
+      router.push('/aprobador');
+    } catch (err: any) {
+      console.error('Error rejecting:', err);
+      dispatch(showToast({ 
+        message: err.response?.data?.error || 'Error al rechazar la fase', 
+        type: 'error' 
+      }));
+    } finally {
+      setProcessingReview(false);
     }
   };
 
@@ -306,6 +468,9 @@ export default function ResponderFasePage() {
         
         // Cargar respuestas guardadas después de cargar la fase
         await loadSavedAnswers();
+        
+        // Verificar estado de aprobación
+        await loadApprovalStatus();
       } catch (phaseErr: any) {
         console.error('Error cargando fase:', phaseErr);
         setError('No se pudo cargar la fase. Verifique que existe en la base de datos.');
@@ -418,7 +583,7 @@ export default function ResponderFasePage() {
         </div>
 
         {question.inputType === 'TEXTO' && (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden min-h-[200px]">
+          <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden min-h-[200px] ${isReviewMode ? 'opacity-80' : ''}`}>
             <Suspense fallback={
               <div className="h-48 bg-gray-100 dark:bg-gray-700 animate-pulse flex items-center justify-center">
                 <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
@@ -427,7 +592,7 @@ export default function ResponderFasePage() {
               <BlockEditor
                 initialContent={value as string || undefined}
                 onChange={(content) => handleAnswerChange(question.idQuestion, content)}
-                editable={true}
+                editable={!isReviewMode}
               />
             </Suspense>
           </div>
@@ -438,12 +603,13 @@ export default function ResponderFasePage() {
             type="date"
             value={value as string}
             onChange={(e) => handleAnswerChange(question.idQuestion, e.target.value)}
-            className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+            disabled={isReviewMode}
+            className={`w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm ${isReviewMode ? 'cursor-not-allowed opacity-80' : ''}`}
           />
         )}
 
         {question.inputType === 'TABLA' && (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden">
+          <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden ${isReviewMode ? 'opacity-80' : ''}`}>
             {question.tableConfig && question.tableConfig.columns && question.tableConfig.columns.length > 0 ? (
               <TableEditor
                 columns={question.tableConfig.columns}
@@ -451,6 +617,7 @@ export default function ResponderFasePage() {
                 onChange={(data) => handleAnswerChange(question.idQuestion, data)}
                 minRows={question.tableConfig.minRows}
                 maxRows={question.tableConfig.maxRows}
+                readOnly={isReviewMode}
               />
             ) : (
               <div className="p-4 text-center">
@@ -469,13 +636,28 @@ export default function ResponderFasePage() {
   const currentSection = phase?.sections[currentSectionIndex];
 
   return (
-    <RoleGuard allowedRoles={['ADMIN', 'USER']}>
+    <RoleGuard allowedRoles={['ADMIN', 'USER', 'APPROVER']}>
       <div className="space-y-6">
+        {/* Banner de modo revisión */}
+        {isReviewMode && (
+          <div className="flex items-center gap-3 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl">
+            <Lock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+            <div>
+              <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
+                Modo Revisión
+              </p>
+              <p className="text-xs text-orange-600 dark:text-orange-400">
+                Estás revisando esta fase para aprobarla o rechazarla. Los campos están bloqueados.
+              </p>
+            </div>
+          </div>
+        )}
+        
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push(`/ver-procesos/${processId}/fases`)}
+              onClick={() => router.push(isReviewMode ? '/aprobador' : `/ver-procesos/${processId}/fases`)}
               className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
             >
               <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -493,23 +675,90 @@ export default function ResponderFasePage() {
             </div>
           </div>
           
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-xl transition-colors shadow-lg shadow-purple-600/25"
-          >
-            {saving ? (
+          <div className="flex items-center gap-3">
+            {isReviewMode ? (
+              /* Botones de aprobar/rechazar para modo revisión */
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Guardando...</span>
+                <button
+                  onClick={handleApprovePhase}
+                  disabled={processingReview}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl transition-colors shadow-lg shadow-green-600/25"
+                >
+                  {processingReview ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <ThumbsUp className="w-5 h-5" />
+                  )}
+                  <span>Aprobar Fase</span>
+                </button>
+                <button
+                  onClick={() => setShowRejectModal(true)}
+                  disabled={processingReview}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-xl transition-colors shadow-lg shadow-red-600/25"
+                >
+                  <ThumbsDown className="w-5 h-5" />
+                  <span>Rechazar</span>
+                </button>
               </>
             ) : (
+              /* Botones normales de guardar y solicitar aprobación */
               <>
-                <Save className="w-5 h-5" />
-                <span>Guardar Respuestas</span>
+                {/* Botón Guardar Respuestas */}
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-xl transition-colors shadow-lg shadow-purple-600/25"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      <span>Guardar Respuestas</span>
+                    </>
+                  )}
+                </button>
+                
+                {/* Botón Solicitar Aprobación */}
+                {approvalStatus?.status === 'PENDING' ? (
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-xl">
+                    <HourglassIcon className="w-5 h-5" />
+                    <span className="text-sm font-medium">Esperando aprobación</span>
+                  </div>
+                ) : approvalStatus?.status === 'REJECTED' ? (
+                  <button
+                    onClick={() => setShowApprovalModal(true)}
+                    disabled={requestingApproval}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white rounded-xl transition-colors"
+                  >
+                <XCircle className="w-5 h-5" />
+                <span>Volver a solicitar</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowApprovalModal(true)}
+                disabled={requestingApproval}
+                className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl transition-colors shadow-lg shadow-green-600/25"
+              >
+                {requestingApproval ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Enviando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    <span>Solicitar Aprobación</span>
+                  </>
+                )}
+              </button>
+            )}
               </>
             )}
-          </button>
+          </div>
         </div>
 
         {/* Progress Bar */}
@@ -609,6 +858,30 @@ export default function ResponderFasePage() {
                     <span>Siguiente</span>
                     <ChevronRight className="w-4 h-4" />
                   </button>
+                ) : isReviewMode ? (
+                  /* En modo revisión, mostrar botones de aprobar/rechazar */
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleApprovePhase}
+                      disabled={processingReview}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors disabled:opacity-50"
+                    >
+                      {processingReview ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ThumbsUp className="w-4 h-4" />
+                      )}
+                      <span>Aprobar</span>
+                    </button>
+                    <button
+                      onClick={() => setShowRejectModal(true)}
+                      disabled={processingReview}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors disabled:opacity-50"
+                    >
+                      <ThumbsDown className="w-4 h-4" />
+                      <span>Rechazar</span>
+                    </button>
+                  </div>
                 ) : (
                   <button
                     onClick={handleSave}
@@ -627,6 +900,150 @@ export default function ResponderFasePage() {
             </div>
           </>
         ) : null}
+
+        {/* Modal de solicitud de aprobación */}
+        {showApprovalModal && phase && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                  <Send className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Solicitar Aprobación
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Fase {phase.order}: {phase.title}
+                  </p>
+                </div>
+              </div>
+              
+              {approvalStatus?.status === 'REJECTED' && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-700 dark:text-red-400">
+                    <strong>Motivo del rechazo anterior:</strong> {approvalStatus.rejectionReason || 'Sin motivo especificado'}
+                  </p>
+                </div>
+              )}
+              
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Al solicitar aprobación, un administrador revisará el trabajo realizado en esta fase 
+                antes de permitir el avance a la siguiente fase.
+              </p>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Comentarios (opcional)
+                </label>
+                <textarea
+                  value={approvalComments}
+                  onChange={(e) => setApprovalComments(e.target.value)}
+                  placeholder="Agregue comentarios o notas para el aprobador..."
+                  rows={3}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowApprovalModal(false);
+                    setApprovalComments('');
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRequestApproval}
+                  disabled={requestingApproval}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  {requestingApproval ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Enviar Solicitud
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de rechazo (modo revisión) */}
+        {showRejectModal && phase && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                  <ThumbsDown className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Rechazar Fase
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Fase {phase.order}: {phase.title}
+                  </p>
+                </div>
+              </div>
+              
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Al rechazar esta fase, el solicitante deberá realizar las correcciones necesarias 
+                y volver a solicitar aprobación.
+              </p>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Motivo del rechazo <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Explique las razones del rechazo y las correcciones necesarias..."
+                  rows={4}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setRejectionReason('');
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRejectPhase}
+                  disabled={processingReview || !rejectionReason.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  {processingReview ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <ThumbsDown className="w-4 h-4" />
+                      Confirmar Rechazo
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </RoleGuard>
   );

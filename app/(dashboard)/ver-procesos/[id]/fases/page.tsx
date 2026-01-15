@@ -17,9 +17,14 @@ import {
   Shield,
   Settings,
   Target,
-  ClipboardList
+  ClipboardList,
+  Send,
+  XCircle,
+  HourglassIcon
 } from 'lucide-react';
-import { processAPI, ProcessEgsiDTO, egsiPhasesAPI, EgsiPhaseDTO } from '@/lib/api';
+import { processAPI, ProcessEgsiDTO, egsiPhasesAPI, EgsiPhaseDTO, phaseApprovalAPI, PhaseApprovalDTO } from '@/lib/api';
+import { useAppDispatch } from '@/app/store/hooks';
+import { showToast } from '@/app/store/slices/toastSlice';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import RoleGuard from '@/app/components/RoleGuard';
@@ -42,6 +47,8 @@ const PHASE_ICONS: Record<number, React.ComponentType<{ className?: string }>> =
 const PHASE_STATUS = {
   LOCKED: { label: 'Bloqueada', color: 'gray', icon: Lock, bgColor: 'bg-gray-100 dark:bg-gray-700', textColor: 'text-gray-500 dark:text-gray-400' },
   ACTIVE: { label: 'En Progreso', color: 'blue', icon: Play, bgColor: 'bg-blue-100 dark:bg-blue-900/30', textColor: 'text-blue-600 dark:text-blue-400' },
+  PENDING_APPROVAL: { label: 'Pendiente Aprobación', color: 'yellow', icon: HourglassIcon, bgColor: 'bg-yellow-100 dark:bg-yellow-900/30', textColor: 'text-yellow-600 dark:text-yellow-400' },
+  REJECTED: { label: 'Rechazada', color: 'red', icon: XCircle, bgColor: 'bg-red-100 dark:bg-red-900/30', textColor: 'text-red-600 dark:text-red-400' },
   COMPLETED: { label: 'Completada', color: 'green', icon: CheckCircle2, bgColor: 'bg-green-100 dark:bg-green-900/30', textColor: 'text-green-600 dark:text-green-400' },
 };
 
@@ -51,22 +58,29 @@ interface PhaseData {
   description: string;
   order: number;
   icon: React.ComponentType<{ className?: string }>;
-  status: 'LOCKED' | 'ACTIVE' | 'COMPLETED';
+  status: 'LOCKED' | 'ACTIVE' | 'PENDING_APPROVAL' | 'REJECTED' | 'COMPLETED';
   progress: number;
   questionsAnswered: number;
   totalQuestions: number;
   totalSections: number;
+  approvalStatus?: PhaseApprovalDTO | null;
+  canRequestApproval?: boolean;
 }
 
 export default function FasesProcesoPage() {
   const params = useParams();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const processId = params.id as string;
   
   const [process, setProcess] = useState<ProcessEgsiDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [phases, setPhases] = useState<PhaseData[]>([]);
+  const [requestingApproval, setRequestingApproval] = useState<string | null>(null);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [selectedPhase, setSelectedPhase] = useState<PhaseData | null>(null);
+  const [approvalComments, setApprovalComments] = useState('');
 
   // Cargar proceso y fases desde la base de datos
   const fetchData = async () => {
@@ -74,7 +88,7 @@ export default function FasesProcesoPage() {
       setLoading(true);
       setError(null);
       
-      // Cargar proceso y fases en paralelo
+      // Cargar proceso, fases y estado de aprobaciones en paralelo
       const [processData, phasesResponse] = await Promise.all([
         processAPI.getById(processId),
         egsiPhasesAPI.getActive() // Solo fases activas
@@ -86,41 +100,69 @@ export default function FasesProcesoPage() {
       const currentPhaseOrder = getCurrentPhaseOrder(processData.customPhase);
       
       // Transformar las fases de la BD al formato que necesitamos
-      const phasesData: PhaseData[] = phasesResponse.egsiPhases.map((phase) => {
-        // Contar total de preguntas en todas las secciones
-        const totalQuestions = phase.sections.reduce(
-          (acc, section) => acc + section.questions.length, 
-          0
-        );
-        
-        // Determinar estado basado en el orden
-        let status: 'LOCKED' | 'ACTIVE' | 'COMPLETED' = 'LOCKED';
-        let progress = 0;
-        let questionsAnswered = 0;
-        
-        if (phase.order < currentPhaseOrder) {
-          status = 'COMPLETED';
-          progress = 100;
-          questionsAnswered = totalQuestions;
-        } else if (phase.order === currentPhaseOrder) {
-          status = 'ACTIVE';
-          progress = 30; // TODO: Calcular basado en respuestas guardadas
-          questionsAnswered = Math.floor(totalQuestions * 0.3);
-        }
-        
-        return {
-          idPhase: phase.idPhase,
-          title: phase.title,
-          description: phase.description || 'Sin descripción',
-          order: phase.order,
-          icon: PHASE_ICONS[phase.order] || FileText,
-          status,
-          progress,
-          questionsAnswered,
-          totalQuestions,
-          totalSections: phase.sections.length,
-        };
-      });
+      const phasesData: PhaseData[] = await Promise.all(
+        phasesResponse.egsiPhases.map(async (phase) => {
+          // Contar total de preguntas en todas las secciones
+          const totalQuestions = phase.sections.reduce(
+            (acc, section) => acc + section.questions.length, 
+            0
+          );
+          
+          // Verificar estado de aprobación para esta fase
+          let approvalStatus: PhaseApprovalDTO | null = null;
+          try {
+            const approvalCheck = await phaseApprovalAPI.checkPending(processId, phase.idPhase);
+            approvalStatus = approvalCheck.lastApproval;
+          } catch (e) {
+            console.log('No approval status for phase', phase.idPhase);
+          }
+          
+          // Determinar estado basado en el orden y aprobaciones
+          let status: 'LOCKED' | 'ACTIVE' | 'PENDING_APPROVAL' | 'REJECTED' | 'COMPLETED' = 'LOCKED';
+          let progress = 0;
+          let questionsAnswered = 0;
+          let canRequestApproval = false;
+          
+          if (phase.order < currentPhaseOrder) {
+            status = 'COMPLETED';
+            progress = 100;
+            questionsAnswered = totalQuestions;
+          } else if (phase.order === currentPhaseOrder) {
+            // Verificar si hay solicitud de aprobación pendiente o rechazada
+            if (approvalStatus?.status === 'PENDING') {
+              status = 'PENDING_APPROVAL';
+              progress = 100;
+              questionsAnswered = totalQuestions;
+            } else if (approvalStatus?.status === 'REJECTED') {
+              status = 'REJECTED';
+              progress = 100;
+              questionsAnswered = totalQuestions;
+              canRequestApproval = true; // Puede volver a solicitar
+            } else {
+              status = 'ACTIVE';
+              progress = 30; // TODO: Calcular basado en respuestas guardadas
+              questionsAnswered = Math.floor(totalQuestions * 0.3);
+              // Siempre puede solicitar aprobación en la fase activa
+              canRequestApproval = true;
+            }
+          }
+          
+          return {
+            idPhase: phase.idPhase,
+            title: phase.title,
+            description: phase.description || 'Sin descripción',
+            order: phase.order,
+            icon: PHASE_ICONS[phase.order] || FileText,
+            status,
+            progress,
+            questionsAnswered,
+            totalQuestions,
+            totalSections: phase.sections.length,
+            approvalStatus,
+            canRequestApproval,
+          };
+        })
+      );
       
       // Ordenar por order
       phasesData.sort((a, b) => a.order - b.order);
@@ -132,6 +174,52 @@ export default function FasesProcesoPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Solicitar aprobación de fase
+  const handleRequestApproval = async () => {
+    if (!selectedPhase || !process) return;
+    
+    try {
+      setRequestingApproval(selectedPhase.idPhase);
+      
+      // Obtener usuario actual del localStorage
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      const requestedBy = user?.username || 'usuario@espe.edu.ec';
+      
+      await phaseApprovalAPI.create({
+        idProcess: processId,
+        idPhase: selectedPhase.idPhase,
+        phaseOrder: selectedPhase.order,
+        phaseTitle: selectedPhase.title,
+        requestedBy,
+        comments: approvalComments,
+      });
+      
+      dispatch(showToast({ 
+        message: 'Solicitud de aprobación enviada correctamente', 
+        type: 'success' 
+      }));
+      
+      setShowApprovalModal(false);
+      setApprovalComments('');
+      setSelectedPhase(null);
+      fetchData(); // Recargar datos
+    } catch (err: any) {
+      console.error('Error requesting approval:', err);
+      dispatch(showToast({ 
+        message: err.response?.data?.error || 'Error al enviar solicitud', 
+        type: 'error' 
+      }));
+    } finally {
+      setRequestingApproval(null);
+    }
+  };
+
+  const openApprovalModal = (phase: PhaseData) => {
+    setSelectedPhase(phase);
+    setShowApprovalModal(true);
   };
 
   // Convertir customPhase (FASE1, FASE2, etc.) a número de orden
@@ -333,9 +421,62 @@ export default function FasesProcesoPage() {
                             </div>
                           </div>
                           
-                          {/* Arrow */}
-                          <div className="flex items-center justify-center w-10 h-10 bg-gray-100 dark:bg-gray-700 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/30 rounded-xl transition-colors self-center">
-                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
+                          {/* Arrow o botón de aprobación */}
+                          <div className="flex flex-col items-center gap-2 self-center">
+                            {/* Mostrar botón de solicitar aprobación si está activa y puede solicitar */}
+                            {phase.status === 'ACTIVE' && phase.canRequestApproval && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  openApprovalModal(phase);
+                                }}
+                                disabled={requestingApproval === phase.idPhase}
+                                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                              >
+                                {requestingApproval === phase.idPhase ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Send className="w-4 h-4" />
+                                )}
+                                Solicitar Aprobación
+                              </button>
+                            )}
+                            
+                            {/* Mostrar estado de rechazo con opción de volver a solicitar */}
+                            {phase.status === 'REJECTED' && phase.approvalStatus && (
+                              <div className="text-center">
+                                <p className="text-xs text-red-500 dark:text-red-400 mb-2 max-w-[200px]">
+                                  Rechazada: {phase.approvalStatus.rejectionReason || 'Sin motivo especificado'}
+                                </p>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    openApprovalModal(phase);
+                                  }}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-medium transition-colors"
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                  Volver a solicitar
+                                </button>
+                              </div>
+                            )}
+                            
+                            {/* Mostrar estado pendiente de aprobación */}
+                            {phase.status === 'PENDING_APPROVAL' && (
+                              <div className="text-center px-3 py-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                                <HourglassIcon className="w-5 h-5 text-yellow-600 mx-auto mb-1" />
+                                <p className="text-xs text-yellow-700 dark:text-yellow-400 font-medium">
+                                  Esperando aprobación
+                                </p>
+                              </div>
+                            )}
+                            
+                            {/* Flecha para navegar */}
+                            {phase.status !== 'PENDING_APPROVAL' && (
+                              <div className="flex items-center justify-center w-10 h-10 bg-gray-100 dark:bg-gray-700 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/30 rounded-xl transition-colors">
+                                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -344,6 +485,75 @@ export default function FasesProcesoPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Modal de solicitud de aprobación */}
+        {showApprovalModal && selectedPhase && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                  <Send className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Solicitar Aprobación
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Fase {selectedPhase.order}: {selectedPhase.title}
+                  </p>
+                </div>
+              </div>
+              
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Al solicitar aprobación, un administrador revisará el trabajo realizado en esta fase 
+                antes de permitir el avance a la siguiente fase.
+              </p>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Comentarios (opcional)
+                </label>
+                <textarea
+                  value={approvalComments}
+                  onChange={(e) => setApprovalComments(e.target.value)}
+                  placeholder="Agregue comentarios o notas para el aprobador..."
+                  rows={3}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowApprovalModal(false);
+                    setSelectedPhase(null);
+                    setApprovalComments('');
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRequestApproval}
+                  disabled={requestingApproval !== null}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  {requestingApproval ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Enviar Solicitud
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

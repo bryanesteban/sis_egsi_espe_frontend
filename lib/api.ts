@@ -538,3 +538,109 @@ export const egsiAnswersAPI = {
     await apiClient.delete(`/api/v3/egsi/answers/${idAnswer}`);
   },
 };
+
+// ============================================================
+// TIPOS PARA APROBACIONES DE FASES
+// ============================================================
+
+export interface PhaseApprovalDTO {
+  idApproval: string;
+  idProcess: string;
+  processName: string;
+  idPhase: string;
+  phaseOrder: number;
+  phaseTitle: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  requestedBy: string;
+  requestedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  comments?: string;
+  rejectionReason?: string;
+}
+
+export interface CreateApprovalRequestDTO {
+  idProcess: string;
+  idPhase: string;
+  phaseOrder: number;
+  phaseTitle: string;
+  requestedBy: string;
+  comments?: string;
+}
+
+export interface ReviewApprovalRequestDTO {
+  idApproval: string;
+  action: 'APPROVED' | 'REJECTED';
+  reviewedBy: string;
+  rejectionReason?: string;
+}
+
+export interface PendingApprovalsResponse {
+  approvals: PhaseApprovalDTO[];
+  total: number;
+}
+
+export interface CheckApprovalResponse {
+  hasPendingApproval: boolean;
+  lastApproval: PhaseApprovalDTO | null;
+}
+
+// ============================================================
+// API DE APROBACIONES DE FASES
+// ============================================================
+
+export const phaseApprovalAPI = {
+  // Crear solicitud de aprobación
+  create: async (request: CreateApprovalRequestDTO): Promise<PhaseApprovalDTO> => {
+    const response = await apiClient.post('/api/v3/phase-approvals', request);
+    return response.data;
+  },
+
+  // Revisar solicitud (aprobar/rechazar)
+  review: async (request: ReviewApprovalRequestDTO): Promise<PhaseApprovalDTO> => {
+    const response = await apiClient.put('/api/v3/phase-approvals/review', request);
+    return response.data;
+  },
+
+  // Cancelar solicitud
+  cancel: async (idApproval: string, cancelledBy: string): Promise<PhaseApprovalDTO> => {
+    const response = await apiClient.delete(`/api/v3/phase-approvals/${idApproval}?cancelledBy=${cancelledBy}`);
+    return response.data;
+  },
+
+  // Obtener solicitudes pendientes
+  getPending: async (): Promise<PendingApprovalsResponse> => {
+    const response = await apiClient.get('/api/v3/phase-approvals/pending');
+    return response.data;
+  },
+
+  // Obtener solicitudes por proceso
+  getByProcess: async (idProcess: string): Promise<PendingApprovalsResponse> => {
+    const response = await apiClient.get(`/api/v3/phase-approvals/process/${idProcess}`);
+    return response.data;
+  },
+
+  // Obtener solicitud por ID
+  getById: async (idApproval: string): Promise<PhaseApprovalDTO> => {
+    const response = await apiClient.get(`/api/v3/phase-approvals/${idApproval}`);
+    return response.data;
+  },
+
+  // Verificar si hay solicitud pendiente
+  checkPending: async (idProcess: string, idPhase: string): Promise<CheckApprovalResponse> => {
+    const response = await apiClient.get(`/api/v3/phase-approvals/check/${idProcess}/${idPhase}`);
+    return response.data;
+  },
+
+  // Obtener historial de aprobaciones
+  getHistory: async (idProcess: string): Promise<PendingApprovalsResponse> => {
+    const response = await apiClient.get(`/api/v3/phase-approvals/history/${idProcess}`);
+    return response.data;
+  },
+
+  // Contar solicitudes pendientes
+  countPending: async (): Promise<{ pendingCount: number }> => {
+    const response = await apiClient.get('/api/v3/phase-approvals/count/pending');
+    return response.data;
+  },
+};
