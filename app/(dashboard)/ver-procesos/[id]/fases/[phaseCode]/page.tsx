@@ -257,6 +257,19 @@ export default function ResponderFasePage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
 
+  // Determinar estados de aprobación
+  const isPendingApproval = approvalStatus?.status === 'PENDING';
+  const isRejected = approvalStatus?.status === 'REJECTED';
+  const isApproved = approvalStatus?.status === 'APPROVED';
+  
+  // Determinar si se puede editar:
+  // - NO se puede editar si está en modo revisión (aprobador viendo)
+  // - NO se puede editar si hay una solicitud PENDING (esperando aprobación)
+  // - NO se puede editar si ya fue APPROVED (fase completada)
+  // - SÍ se puede editar si fue REJECTED (para corregir)
+  // - SÍ se puede editar si no hay solicitud de aprobación
+  const canEdit = !isReviewMode && !isPendingApproval && !isApproved;
+
   // Cargar respuestas guardadas
   const loadSavedAnswers = async () => {
     try {
@@ -583,7 +596,7 @@ export default function ResponderFasePage() {
         </div>
 
         {question.inputType === 'TEXTO' && (
-          <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden min-h-[200px] ${isReviewMode ? 'opacity-80' : ''}`}>
+          <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden min-h-[200px] ${!canEdit ? 'opacity-80' : ''}`}>
             <Suspense fallback={
               <div className="h-48 bg-gray-100 dark:bg-gray-700 animate-pulse flex items-center justify-center">
                 <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
@@ -592,7 +605,7 @@ export default function ResponderFasePage() {
               <BlockEditor
                 initialContent={value as string || undefined}
                 onChange={(content) => handleAnswerChange(question.idQuestion, content)}
-                editable={!isReviewMode}
+                editable={canEdit}
               />
             </Suspense>
           </div>
@@ -603,13 +616,13 @@ export default function ResponderFasePage() {
             type="date"
             value={value as string}
             onChange={(e) => handleAnswerChange(question.idQuestion, e.target.value)}
-            disabled={isReviewMode}
-            className={`w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm ${isReviewMode ? 'cursor-not-allowed opacity-80' : ''}`}
+            disabled={!canEdit}
+            className={`w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm ${!canEdit ? 'cursor-not-allowed opacity-80' : ''}`}
           />
         )}
 
         {question.inputType === 'TABLA' && (
-          <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden ${isReviewMode ? 'opacity-80' : ''}`}>
+          <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden ${!canEdit ? 'opacity-80' : ''}`}>
             {question.tableConfig && question.tableConfig.columns && question.tableConfig.columns.length > 0 ? (
               <TableEditor
                 columns={question.tableConfig.columns}
@@ -617,7 +630,7 @@ export default function ResponderFasePage() {
                 onChange={(data) => handleAnswerChange(question.idQuestion, data)}
                 minRows={question.tableConfig.minRows}
                 maxRows={question.tableConfig.maxRows}
-                readOnly={isReviewMode}
+                readOnly={!canEdit}
               />
             ) : (
               <div className="p-4 text-center">
@@ -638,7 +651,7 @@ export default function ResponderFasePage() {
   return (
     <RoleGuard allowedRoles={['ADMIN', 'USER', 'APPROVER']}>
       <div className="space-y-6">
-        {/* Banner de modo revisión */}
+        {/* Banner de modo revisión (para aprobadores) */}
         {isReviewMode && (
           <div className="flex items-center gap-3 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl">
             <Lock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
@@ -648,6 +661,54 @@ export default function ResponderFasePage() {
               </p>
               <p className="text-xs text-orange-600 dark:text-orange-400">
                 Estás revisando esta fase para aprobarla o rechazarla. Los campos están bloqueados.
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Banner de esperando aprobación (para usuarios) */}
+        {!isReviewMode && isPendingApproval && (
+          <div className="flex items-center gap-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
+            <HourglassIcon className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+                Esperando Aprobación
+              </p>
+              <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                Esta fase está pendiente de aprobación. No puedes modificar las respuestas hasta que sea revisada.
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Banner de fase rechazada (para usuarios) */}
+        {!isReviewMode && isRejected && approvalStatus && (
+          <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+            <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+            <div>
+              <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                Fase Rechazada - Requiere Correcciones
+              </p>
+              <p className="text-xs text-red-600 dark:text-red-400">
+                <strong>Motivo:</strong> {approvalStatus.rejectionReason || 'Sin motivo especificado'}
+              </p>
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                Corrige las observaciones y vuelve a solicitar aprobación.
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Banner de fase aprobada (para usuarios) */}
+        {!isReviewMode && isApproved && (
+          <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+            <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+            <div>
+              <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                Fase Aprobada
+              </p>
+              <p className="text-xs text-green-600 dark:text-green-400">
+                Esta fase ha sido aprobada y no puede ser modificada. Puedes continuar con la siguiente fase.
               </p>
             </div>
           </div>
@@ -703,59 +764,67 @@ export default function ResponderFasePage() {
             ) : (
               /* Botones normales de guardar y solicitar aprobación */
               <>
-                {/* Botón Guardar Respuestas */}
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-xl transition-colors shadow-lg shadow-purple-600/25"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Guardando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-5 h-5" />
-                      <span>Guardar Respuestas</span>
-                    </>
-                  )}
-                </button>
+                {/* Botón Guardar Respuestas - solo si puede editar */}
+                {canEdit && (
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-xl transition-colors shadow-lg shadow-purple-600/25"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Guardando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-5 h-5" />
+                        <span>Guardar Respuestas</span>
+                      </>
+                    )}
+                  </button>
+                )}
                 
-                {/* Botón Solicitar Aprobación */}
-                {approvalStatus?.status === 'PENDING' ? (
+                {/* Estado y botones de aprobación */}
+                {isApproved ? (
+                  /* Fase aprobada - mostrar badge verde */
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-xl">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span className="text-sm font-medium">Fase Aprobada</span>
+                  </div>
+                ) : isPendingApproval ? (
                   <div className="flex items-center gap-2 px-4 py-2.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-xl">
                     <HourglassIcon className="w-5 h-5" />
                     <span className="text-sm font-medium">Esperando aprobación</span>
                   </div>
-                ) : approvalStatus?.status === 'REJECTED' ? (
+                ) : isRejected ? (
                   <button
                     onClick={() => setShowApprovalModal(true)}
                     disabled={requestingApproval}
                     className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white rounded-xl transition-colors"
                   >
-                <XCircle className="w-5 h-5" />
-                <span>Volver a solicitar</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowApprovalModal(true)}
-                disabled={requestingApproval}
-                className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl transition-colors shadow-lg shadow-green-600/25"
-              >
-                {requestingApproval ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Enviando...</span>
-                  </>
+                    <XCircle className="w-5 h-5" />
+                    <span>Volver a solicitar</span>
+                  </button>
                 ) : (
-                  <>
-                    <Send className="w-5 h-5" />
-                    <span>Solicitar Aprobación</span>
-                  </>
+                  <button
+                    onClick={() => setShowApprovalModal(true)}
+                    disabled={requestingApproval}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl transition-colors shadow-lg shadow-green-600/25"
+                  >
+                    {requestingApproval ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Enviando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5" />
+                        <span>Solicitar Aprobación</span>
+                      </>
+                    )}
+                  </button>
                 )}
-              </button>
-            )}
               </>
             )}
           </div>
@@ -882,7 +951,7 @@ export default function ResponderFasePage() {
                       <span>Rechazar</span>
                     </button>
                   </div>
-                ) : (
+                ) : canEdit ? (
                   <button
                     onClick={handleSave}
                     disabled={saving}
@@ -895,6 +964,11 @@ export default function ResponderFasePage() {
                     )}
                     <span>Finalizar</span>
                   </button>
+                ) : (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-xl">
+                    <Lock className="w-4 h-4" />
+                    <span>Solo lectura</span>
+                  </div>
                 )}
               </div>
             </div>
