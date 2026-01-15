@@ -16,13 +16,16 @@ import {
   RefreshCw,
   Layers,
   MessageSquare,
-  Eye
+  Eye,
+  Download
 } from 'lucide-react';
 import RoleGuard from '@/app/components/RoleGuard';
-import { phaseApprovalAPI, PhaseApprovalDTO } from '@/lib/api';
+import { phaseApprovalAPI, PhaseApprovalDTO, egsiPhasesAPI, egsiAnswersAPI } from '@/lib/api';
 import { useAppDispatch } from '@/app/store/hooks';
 import { showToast } from '@/app/store/slices/toastSlice';
 import Link from 'next/link';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function AprobadorPage() {
   const dispatch = useAppDispatch();
@@ -32,6 +35,7 @@ export default function AprobadorPage() {
   const [selectedApproval, setSelectedApproval] = useState<PhaseApprovalDTO | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
 
   // Cargar aprobaciones
   const fetchApprovals = async () => {
@@ -133,6 +137,317 @@ export default function AprobadorPage() {
   const openRejectModal = (approval: PhaseApprovalDTO) => {
     setSelectedApproval(approval);
     setShowRejectModal(true);
+  };
+
+  // Función para extraer texto limpio de contenido BlockNote JSON
+  const extractTextFromBlockNote = (jsonString: string): string => {
+    try {
+      const blocks = JSON.parse(jsonString);
+      if (!Array.isArray(blocks)) return jsonString;
+      
+      const extractText = (content: any[]): string => {
+        if (!Array.isArray(content)) return '';
+        return content.map(item => {
+          if (item.type === 'text') {
+            return item.text || '';
+          }
+          if (item.content) {
+            return extractText(item.content);
+          }
+          return '';
+        }).join('');
+      };
+      
+      const textParts: string[] = [];
+      blocks.forEach(block => {
+        if (block.content) {
+          const text = extractText(block.content);
+          if (text.trim()) {
+            if (block.type === 'bulletListItem') {
+              textParts.push(`• ${text}`);
+            } else if (block.type === 'numberedListItem') {
+              textParts.push(`- ${text}`);
+            } else {
+              textParts.push(text);
+            }
+          }
+        }
+      });
+      
+      return textParts.join('\n') || 'Sin contenido';
+    } catch {
+      return jsonString.replace(/<[^>]*>/g, '').trim() || jsonString;
+    }
+  };
+
+  // Generar PDF de la fase pendiente de aprobación
+  const handleDownloadPdf = async (approval: PhaseApprovalDTO) => {
+    try {
+      setGeneratingPdf(approval.idApproval);
+      
+      // Obtener datos de la fase
+      const phaseData = await egsiPhasesAPI.getById(approval.idPhase);
+      
+      // Obtener respuestas de la fase
+      const answersResponse = await egsiAnswersAPI.getAnswersMap(approval.idProcess, approval.idPhase);
+      
+      const doc = new jsPDF('portrait', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      // === HEADER ===
+      doc.setFontSize(18);
+      doc.setTextColor(124, 58, 237);
+      doc.text('INFORME DE FASE - REVISIÓN', pageWidth / 2, 20, { align: 'center' });
+      
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Sistema de Gestión EGSI - ESPE', pageWidth / 2, 28, { align: 'center' });
+      
+      // === INFORMACIÓN DEL PROCESO ===
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      let yPos = 40;
+      
+      doc.setFont('helvetica', 'bold');
+      doc.text('Proceso:', 14, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(approval.processName || 'N/A', 50, yPos);
+      
+      yPos += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Fase:', 14, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Fase ${approval.phaseOrder}: ${approval.phaseTitle}`, 50, yPos);
+      
+      yPos += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Solicitante:', 14, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(approval.requestedBy || 'N/A', 50, yPos);
+      
+      yPos += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Fecha solicitud:', 14, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(formatDate(approval.requestedAt), 50, yPos);
+      
+      if (approval.comments) {
+        yPos += 7;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Comentarios:', 14, yPos);
+        doc.setFont('helvetica', 'normal');
+        const commLines = doc.splitTextToSize(approval.comments, pageWidth - 65);
+        doc.text(commLines, 50, yPos);
+        yPos += (commLines.length * 5);
+      }
+      
+      // Línea separadora
+      yPos += 10;
+      doc.setDrawColor(124, 58, 237);
+      doc.setLineWidth(0.5);
+      doc.line(14, yPos, pageWidth - 14, yPos);
+      
+      // === CONTENIDO DE LA FASE ===
+      yPos += 10;
+      doc.setFontSize(12);
+      doc.setTextColor(124, 58, 237);
+      doc.setFont('helvetica', 'bold');
+      doc.text('CONTENIDO DE LA FASE', 14, yPos);
+      
+      if (phaseData.description) {
+        yPos += 8;
+        doc.setFontSize(10);
+        doc.setTextColor(75, 85, 99);
+        doc.setFont('helvetica', 'normal');
+        const phaseDescLines = doc.splitTextToSize(phaseData.description, pageWidth - 28);
+        doc.text(phaseDescLines, 14, yPos);
+        yPos += (phaseDescLines.length * 5);
+      }
+      
+      // Iterar por secciones
+      const sortedSections = [...phaseData.sections].sort((a, b) => a.order - b.order);
+      
+      sortedSections.forEach((section, sectionIdx) => {
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+        
+        yPos += 10;
+        doc.setFontSize(11);
+        doc.setTextColor(79, 70, 229);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${sectionIdx + 1}. ${section.title}`, 14, yPos);
+        
+        if (section.description) {
+          yPos += 6;
+          doc.setFontSize(9);
+          doc.setTextColor(100, 100, 100);
+          doc.setFont('helvetica', 'normal');
+          const secDescLines = doc.splitTextToSize(section.description, pageWidth - 28);
+          doc.text(secDescLines, 14, yPos);
+          yPos += (secDescLines.length * 4);
+        }
+        
+        const sortedQuestions = [...section.questions].sort((a, b) => a.order - b.order);
+        
+        sortedQuestions.forEach((question) => {
+          if (yPos > 250) {
+            doc.addPage();
+            yPos = 20;
+          }
+          
+          yPos += 8;
+          
+          // Pregunta
+          doc.setFillColor(243, 244, 246);
+          const questionText = question.title + (question.required ? ' *' : '');
+          const questionLines = doc.splitTextToSize(questionText, pageWidth - 32);
+          const questionHeight = questionLines.length * 5 + 6;
+          doc.roundedRect(14, yPos - 4, pageWidth - 28, questionHeight, 1, 1, 'F');
+          
+          doc.setFontSize(10);
+          doc.setTextColor(75, 85, 99);
+          doc.setFont('helvetica', 'bold');
+          doc.text(questionLines, 16, yPos);
+          
+          yPos += questionHeight;
+          
+          // Respuesta
+          const answerValue = answersResponse[question.idQuestion];
+          
+          if (answerValue) {
+            // Parsear tableConfig si es string
+            let tableConfig = question.tableConfig;
+            if (typeof tableConfig === 'string') {
+              try {
+                tableConfig = JSON.parse(tableConfig);
+              } catch {
+                tableConfig = null;
+              }
+            }
+            
+            if (question.inputType === 'TABLA' && tableConfig) {
+              try {
+                const tableData = JSON.parse(answerValue);
+                if (Array.isArray(tableData) && tableData.length > 0) {
+                  const columns = (tableConfig as any).columns || [];
+                  const tableHead = [columns.map((c: any) => c.header)];
+                  const tableBody = tableData;
+                  
+                  if (yPos > 200) {
+                    doc.addPage();
+                    yPos = 20;
+                  }
+                  
+                  doc.setFontSize(9);
+                  doc.setTextColor(0, 0, 0);
+                  doc.setFont('helvetica', 'normal');
+                  doc.text(`Datos de la tabla (${tableBody.length} registros):`, 16, yPos);
+                  yPos += 4;
+                  
+                  autoTable(doc, {
+                    startY: yPos,
+                    head: tableHead,
+                    body: tableBody,
+                    margin: { left: 16, right: 16 },
+                    headStyles: {
+                      fillColor: [79, 70, 229],
+                      textColor: [255, 255, 255],
+                      fontStyle: 'bold',
+                      fontSize: 8,
+                    },
+                    bodyStyles: { fontSize: 8 },
+                    alternateRowStyles: { fillColor: [249, 250, 251] },
+                    tableWidth: 'auto',
+                  });
+                  
+                  yPos = (doc as any).lastAutoTable.finalY + 5;
+                } else {
+                  doc.setFontSize(9);
+                  doc.setTextColor(100, 100, 100);
+                  doc.setFont('helvetica', 'italic');
+                  doc.text('Tabla vacía', 16, yPos);
+                  yPos += 5;
+                }
+              } catch {
+                doc.setFontSize(9);
+                doc.setTextColor(0, 0, 0);
+                doc.setFont('helvetica', 'normal');
+                doc.text(answerValue, 16, yPos);
+                yPos += 5;
+              }
+            } else {
+              let cleanText = answerValue;
+              if (cleanText.startsWith('[') && cleanText.includes('"type"')) {
+                cleanText = extractTextFromBlockNote(cleanText);
+              } else {
+                cleanText = cleanText.replace(/<[^>]*>/g, '').trim();
+              }
+              
+              doc.setFontSize(9);
+              doc.setTextColor(0, 0, 0);
+              doc.setFont('helvetica', 'normal');
+              const answerLines = doc.splitTextToSize(cleanText || 'Sin respuesta', pageWidth - 32);
+              doc.text(answerLines, 16, yPos);
+              yPos += (answerLines.length * 4) + 3;
+            }
+          } else {
+            doc.setFontSize(9);
+            doc.setTextColor(100, 100, 100);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Sin respuesta', 16, yPos);
+            yPos += 5;
+          }
+        });
+      });
+      
+      // === FOOTER ===
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.setFont('helvetica', 'normal');
+        
+        const footerY = doc.internal.pageSize.getHeight() - 10;
+        doc.text(
+          `Página ${i} de ${pageCount} - SIEGSI - Documento de Revisión`,
+          pageWidth / 2,
+          footerY,
+          { align: 'center' }
+        );
+        
+        doc.text(
+          `Generado: ${new Date().toLocaleDateString('es-EC', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}`,
+          pageWidth / 2,
+          footerY + 4,
+          { align: 'center' }
+        );
+      }
+      
+      const fileName = `Fase_${approval.phaseOrder}_${approval.phaseTitle.replace(/\s+/g, '_')}_Revision.pdf`;
+      doc.save(fileName);
+      
+      dispatch(showToast({ 
+        message: 'PDF generado correctamente', 
+        type: 'success' 
+      }));
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      dispatch(showToast({ 
+        message: 'Error al generar el PDF', 
+        type: 'error' 
+      }));
+    } finally {
+      setGeneratingPdf(null);
+    }
   };
 
   // Filtrar aprobaciones
@@ -305,6 +620,19 @@ export default function AprobadorPage() {
                         </div>
                         
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleDownloadPdf(approval)}
+                            disabled={generatingPdf === approval.idApproval}
+                            className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                            title="Descargar PDF de la fase"
+                          >
+                            {generatingPdf === approval.idApproval ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4" />
+                            )}
+                            PDF
+                          </button>
                           <Link
                             href={`/ver-procesos/${approval.idProcess}/fases/${approval.idPhase}?mode=review&approvalId=${approval.idApproval}`}
                             className="flex items-center gap-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors"

@@ -22,7 +22,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   Lock,
-  Download
+  Download,
+  Eye
 } from 'lucide-react';
 import { processAPI, ProcessEgsiDTO, egsiPhasesAPI, egsiAnswersAPI, phaseApprovalAPI, PhaseApprovalDTO } from '@/lib/api';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -236,6 +237,24 @@ export default function ResponderFasePage() {
   const isReviewMode = searchParams.get('mode') === 'review';
   const approvalIdFromUrl = searchParams.get('approvalId');
   
+  // Obtener rol del usuario
+  const [userRole, setUserRole] = useState<string>('USER');
+  
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setUserRole(user?.rolename?.toUpperCase() || 'USER');
+      } catch {
+        setUserRole('USER');
+      }
+    }
+  }, []);
+  
+  // Verificar si es visualizador (solo puede ver, no editar)
+  const isViewer = userRole === 'VIEWER';
+  
   const [process, setProcess] = useState<ProcessEgsiDTO | null>(null);
   const [phase, setPhase] = useState<PhaseData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -269,12 +288,13 @@ export default function ResponderFasePage() {
   const isApproved = approvalStatus?.status === 'APPROVED';
   
   // Determinar si se puede editar:
+  // - NO se puede editar si es VIEWER (solo visualización)
   // - NO se puede editar si está en modo revisión (aprobador viendo)
   // - NO se puede editar si hay una solicitud PENDING (esperando aprobación)
   // - NO se puede editar si ya fue APPROVED (fase completada)
   // - SÍ se puede editar si fue REJECTED (para corregir)
   // - SÍ se puede editar si no hay solicitud de aprobación
-  const canEdit = !isReviewMode && !isPendingApproval && !isApproved;
+  const canEdit = !isViewer && !isReviewMode && !isPendingApproval && !isApproved;
 
   // Cargar respuestas guardadas
   const loadSavedAnswers = async () => {
@@ -950,8 +970,23 @@ export default function ResponderFasePage() {
   const currentSection = phase?.sections[currentSectionIndex];
 
   return (
-    <RoleGuard allowedRoles={['ADMIN', 'USER', 'APPROVER']}>
+    <RoleGuard allowedRoles={['ADMIN', 'USER', 'APPROVER', 'VIEWER']}>
       <div className="space-y-6">
+        {/* Banner de modo visualización (para viewers) */}
+        {isViewer && (
+          <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+            <Eye className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <div>
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                Modo Visualización
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400">
+                Estás viendo esta fase en modo de solo lectura. {isApproved ? 'Puedes descargar el PDF de la fase aprobada.' : 'Solo podrás descargar el PDF cuando la fase esté aprobada.'}
+              </p>
+            </div>
+          </div>
+        )}
+        
         {/* Banner de modo revisión (para aprobadores) */}
         {isReviewMode && (
           <div className="flex items-center gap-3 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl">
@@ -1119,32 +1154,48 @@ export default function ResponderFasePage() {
                     <span className="text-sm font-medium">Esperando aprobación</span>
                   </div>
                 ) : isRejected ? (
-                  <button
-                    onClick={() => setShowApprovalModal(true)}
-                    disabled={requestingApproval}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white rounded-xl transition-colors"
-                  >
-                    <XCircle className="w-5 h-5" />
-                    <span>Volver a solicitar</span>
-                  </button>
+                  /* Solo mostrar botón de volver a solicitar si NO es viewer */
+                  !isViewer ? (
+                    <button
+                      onClick={() => setShowApprovalModal(true)}
+                      disabled={requestingApproval}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white rounded-xl transition-colors"
+                    >
+                      <XCircle className="w-5 h-5" />
+                      <span>Volver a solicitar</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 px-4 py-2.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-xl">
+                      <XCircle className="w-5 h-5" />
+                      <span className="text-sm font-medium">Fase Rechazada</span>
+                    </div>
+                  )
                 ) : (
-                  <button
-                    onClick={() => setShowApprovalModal(true)}
-                    disabled={requestingApproval}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl transition-colors shadow-lg shadow-green-600/25"
-                  >
-                    {requestingApproval ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span>Enviando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-5 h-5" />
-                        <span>Solicitar Aprobación</span>
-                      </>
-                    )}
-                  </button>
+                  /* Solo mostrar botón de solicitar aprobación si NO es viewer */
+                  !isViewer ? (
+                    <button
+                      onClick={() => setShowApprovalModal(true)}
+                      disabled={requestingApproval}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl transition-colors shadow-lg shadow-green-600/25"
+                    >
+                      {requestingApproval ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Enviando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5" />
+                          <span>Solicitar Aprobación</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-xl">
+                      <HourglassIcon className="w-5 h-5" />
+                      <span className="text-sm font-medium">Pendiente de aprobación</span>
+                    </div>
+                  )
                 )}
               </>
             )}

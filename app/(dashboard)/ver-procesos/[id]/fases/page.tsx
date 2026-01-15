@@ -81,6 +81,24 @@ export default function FasesProcesoPage() {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [selectedPhase, setSelectedPhase] = useState<PhaseData | null>(null);
   const [approvalComments, setApprovalComments] = useState('');
+  
+  // Obtener rol del usuario
+  const [userRole, setUserRole] = useState<string>('USER');
+  
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setUserRole(user?.rolename?.toUpperCase() || 'USER');
+      } catch {
+        setUserRole('USER');
+      }
+    }
+  }, []);
+  
+  // Verificar si es visualizador (solo puede ver, no editar)
+  const isViewer = userRole === 'VIEWER';
 
   // Cargar proceso y fases desde la base de datos
   const fetchData = async () => {
@@ -423,8 +441,8 @@ export default function FasesProcesoPage() {
                           
                           {/* Arrow o botón de aprobación */}
                           <div className="flex flex-col items-center gap-2 self-center">
-                            {/* Mostrar botón de solicitar aprobación si está activa y puede solicitar */}
-                            {phase.status === 'ACTIVE' && phase.canRequestApproval && (
+                            {/* Mostrar botón de solicitar aprobación si está activa y puede solicitar (solo si no es viewer) */}
+                            {!isViewer && phase.status === 'ACTIVE' && phase.canRequestApproval && (
                               <button
                                 onClick={(e) => {
                                   e.preventDefault();
@@ -442,22 +460,24 @@ export default function FasesProcesoPage() {
                               </button>
                             )}
                             
-                            {/* Mostrar estado de rechazo con opción de volver a solicitar */}
+                            {/* Mostrar estado de rechazo con opción de volver a solicitar (solo si no es viewer) */}
                             {phase.status === 'REJECTED' && phase.approvalStatus && (
                               <div className="text-center">
                                 <p className="text-xs text-red-500 dark:text-red-400 mb-2 max-w-[200px]">
                                   Rechazada: {phase.approvalStatus.rejectionReason || 'Sin motivo especificado'}
                                 </p>
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    openApprovalModal(phase);
-                                  }}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-medium transition-colors"
-                                >
-                                  <RefreshCw className="w-3 h-3" />
-                                  Volver a solicitar
-                                </button>
+                                {!isViewer && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      openApprovalModal(phase);
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-medium transition-colors"
+                                  >
+                                    <RefreshCw className="w-3 h-3" />
+                                    Volver a solicitar
+                                  </button>
+                                )}
                               </div>
                             )}
                             
