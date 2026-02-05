@@ -22,7 +22,7 @@ import {
   XCircle,
   HourglassIcon
 } from 'lucide-react';
-import { processAPI, ProcessEgsiDTO, egsiPhasesAPI, EgsiPhaseDTO, phaseApprovalAPI, PhaseApprovalDTO } from '@/lib/api';
+import { processAPI, ProcessEgsiDTO, egsiPhasesAPI, EgsiPhaseDTO, phaseApprovalAPI, PhaseApprovalDTO, egsiAnswersAPI } from '@/lib/api';
 import { useAppDispatch } from '@/app/store/hooks';
 import { showToast } from '@/app/store/slices/toastSlice';
 import { useParams, useRouter } from 'next/navigation';
@@ -158,8 +158,16 @@ export default function FasesProcesoPage() {
               canRequestApproval = true; // Puede volver a solicitar
             } else {
               status = 'ACTIVE';
-              progress = 30; // TODO: Calcular basado en respuestas guardadas
-              questionsAnswered = Math.floor(totalQuestions * 0.3);
+              // Obtener progreso real desde el backend
+              try {
+                const progressData = await egsiAnswersAPI.getProgress(processId, phase.idPhase);
+                progress = progressData.progress || 0;
+                questionsAnswered = Math.round((progress / 100) * totalQuestions);
+              } catch (err) {
+                console.error('Error getting progress for phase', phase.idPhase, err);
+                progress = 0;
+                questionsAnswered = 0;
+              }
               // Siempre puede solicitar aprobación en la fase activa
               canRequestApproval = true;
             }
